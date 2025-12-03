@@ -1,0 +1,60 @@
+{
+  "task": "seg",
+  "data_dir": "../seg-data",
+  "analysis_time": "2025-12-03 18:35:24",
+  "total_images": 1387,
+  "total_labels": 1387,
+  "total_objects": 25021,
+  "missing_labels": 0,
+  "empty_labels": 0,
+  "label_completeness": "100.00%",
+  "avg_objects_per_image": 18.039653929343906,
+  "num_classes": 20,
+  "class_distribution": {
+    "1": 1387,
+    "2": 1387,
+    "3": 1387,
+    "4": 1387,
+    "5": 1387,
+    "6": 1387,
+    "7": 1387,
+    "8": 1387,
+    "9": 1387,
+    "10": 1387,
+    "11": 1387,
+    "12": 1387,
+    "13": 1387,
+    "14": 1387,
+    "15": 1387,
+    "16": 1387,
+    "17": 1387,
+    "0": 1387,
+    "18": 44,
+    "19": 11
+  },
+  "image_size_stats": {
+    "width_min": 1228,
+    "width_max": 3208,
+    "width_mean": 2274.9870223503967,
+    "height_min": 2180,
+    "height_max": 7338,
+    "height_mean": 4377.1521268925735
+  },
+  "bbox_size_stats": {
+    "area_min": 2.1102317321274313,
+    "area_max": 143970.58478929952,
+    "area_mean": 30002.613409215548,
+    "area_median": 26525.450046670652
+  },
+  "splits": {
+    "train": 1109,
+    "val": 139,
+    "test": 139
+  },
+  "issues": [],
+  "polygon_stats": {
+    "avg_points_per_mask": 74.12577434954638,
+    "min_points": 4,
+    "max_points": 246
+  }
+}

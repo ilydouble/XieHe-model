@@ -1,0 +1,38 @@
+path: /Users/liruirui/Documents/code/spine/Model/2-extract_corner/../pose_corner_data
+train: images/train
+val: images/val
+test: images/test
+nc: 18
+names:
+- V0
+- V1
+- V2
+- V3
+- V4
+- V5
+- V6
+- V7
+- V8
+- V9
+- V10
+- V11
+- V12
+- V13
+- V14
+- V15
+- V16
+- V17
+kpt_shape:
+- 4
+- 3
+flip_idx:
+- 1
+- 0
+- 3
+- 2
+
+# Keypoint names (for reference):
+# 0: Corner_1 (Top-Left)
+# 1: Corner_2 (Top-Right)
+# 2: Corner_3 (Bottom-Right)
+# 3: Corner_4 (Bottom-Left)

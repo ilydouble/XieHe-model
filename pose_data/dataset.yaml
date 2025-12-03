@@ -1,0 +1,20 @@
+# YOLO11n-pose dataset configuration
+path: ../pose_data
+train: images/train
+val: images/val
+test: images/test
+
+# Classes
+nc: 1
+names: ['person']
+
+# Keypoints
+kpt_shape: [6, 3]  # number of keypoints, number of dimensions (x, y, visibility)
+
+# Keypoint names (for reference)
+# 0: CR (右侧锁骨最高点)
+# 1: CL (左侧锁骨最高点)
+# 2: IR (右侧骼骨最高点)
+# 3: IL (左侧骼骨最高点)
+# 4: SR (骶一上终板右缘点)
+# 5: SL (骶一上终板左缘点)
