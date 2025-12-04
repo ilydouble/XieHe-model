@@ -69,3 +69,5 @@ example/*
 *.cache
 *.pytest_cache
 *.DS_Store
+*.pt
+*.csv

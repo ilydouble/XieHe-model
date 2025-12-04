@@ -156,6 +156,82 @@ python analyze_dataset.py
 
 ---
 
+## 后端 API 服务
+
+提供 REST API，输入图片同时返回 pose 和 pose_corner 结果。
+
+### 安装依赖
+
+```bash
+cd 3-inference
+pip install -r requirements.txt
+```
+
+### 启动服务
+
+```bash
+cd 3-inference
+
+# 方式1: 直接运行
+python app.py
+
+# 方式2: 使用 uvicorn (支持热重载)
+uvicorn app:app --reload --host 0.0.0.0 --port 8000
+```
+
+### API 接口
+
+**健康检查**
+```bash
+curl http://localhost:8000/health
+```
+
+**图片推理**
+```bash
+curl -X POST http://localhost:8000/predict \
+     -F "file=@test.jpg" \
+     -H "Content-Type: multipart/form-data"
+```
+
+**返回格式**
+```json
+{
+  "image_size": {"width": 1024, "height": 2048},
+  "pose": [
+    {
+      "object_confidence": 0.95,
+      "keypoints": [
+        {"name": "CR", "x": 512.0, "y": 100.0, "confidence": 0.98},
+        {"name": "CL", "x": 520.0, "y": 102.0, "confidence": 0.97},
+        ...
+      ]
+    }
+  ],
+  "pose_corner": [
+    {
+      "class_id": 5,
+      "class_name": "V5",
+      "confidence": 0.95,
+      "bbox": {"x1": 100, "y1": 200, "x2": 300, "y2": 280},
+      "corners": [
+        {"name": "top_left", "x": 105.5, "y": 205.2, "confidence": 0.98},
+        {"name": "top_right", "x": 295.3, "y": 208.1, "confidence": 0.97},
+        {"name": "bottom_right", "x": 292.8, "y": 275.6, "confidence": 0.96},
+        {"name": "bottom_left", "x": 108.2, "y": 272.4, "confidence": 0.95}
+      ]
+    }
+  ]
+}
+```
+
+### API 文档
+
+启动服务后访问：
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
+---
+
 ## 模型导出 (可选)
 
 ```python
