@@ -16,8 +16,8 @@ import sys
 from pathlib import Path
 
 # API 配置
-API_BASE_URL = "http://localhost:8000"
-TEST_IMAGE = Path(__file__).parent / "test_spine.png"
+API_BASE_URL = "http://localhost:8888"
+TEST_IMAGE = Path(__file__).parent / "test_spine1.png"
 OUTPUT_FILE = Path(__file__).parent / "result.json"
 
 
