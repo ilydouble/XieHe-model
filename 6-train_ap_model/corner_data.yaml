@@ -1,0 +1,41 @@
+# AP 正面脊柱椎体角点检测数据集配置
+# YOLO Pose 格式: 18 个椎体类别, 每个 4 个角点关键点
+
+path: ../datasets/pose_corner_data
+train: images/train
+val: images/val
+test: images/test
+
+# 类别数量
+nc: 18
+
+# 类别名称 (V0=最顶部椎体, V17=最底部椎体, 按 y 坐标排序)
+names:
+  0: V0
+  1: V1
+  2: V2
+  3: V3
+  4: V4
+  5: V5
+  6: V6
+  7: V7
+  8: V8
+  9: V9
+  10: V10
+  11: V11
+  12: V12
+  13: V13
+  14: V14
+  15: V15
+  16: V16
+  17: V17
+
+# 关键点配置: 每个椎体 4 个角点, 每点 (x, y, visibility)
+kpt_shape: [4, 3]
+
+# 左右翻转时角点索引交换: TL<->TR, BL<->BR
+flip_idx: [1, 0, 3, 2]
+
+# 数据集说明
+# Keypoint 顺序: TL(左上) TR(右上) BR(右下) BL(左下)
+# 来源数据: datasets/pose_corner_data (含 202605AP_PUMCH_Data 新增数据)

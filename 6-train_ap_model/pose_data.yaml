@@ -1,0 +1,25 @@
+# AP 正面脊柱六关键点检测数据集配置
+# YOLO Pose 格式: 1 类 (全脊柱), 6 个关键点
+
+path: ../datasets/pose_data
+train: images/train
+val: images/val
+test: images/test
+
+# 类别数量
+nc: 1
+
+# 类别名称
+names:
+  0: spine
+
+# 关键点配置: 6 个关键点, 每点 (x, y, visibility)
+kpt_shape: [6, 3]
+
+# 关键点说明:
+# 0: CR  — 右侧锁骨最高点
+# 1: CL  — 左侧锁骨最高点
+# 2: IR  — 右侧髂骨最高点
+# 3: IL  — 左侧髂骨最高点
+# 4: SR  — 骶一上终板右缘点
+# 5: SL  — 骶一上终板左缘点

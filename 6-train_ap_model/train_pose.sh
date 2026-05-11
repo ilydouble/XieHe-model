@@ -1,0 +1,115 @@
+#!/bin/bash
+# AP 正面脊柱六关键点姿态检测模型训练脚本
+# 任务: 1 类 (spine), 6 关键点 (CR/CL/IR/IL/SR/SL)
+
+set -e
+
+# ── 默认参数 ──────────────────────────────────────────────────
+MODEL="s"
+EPOCHS=200
+IMGSZ=640
+BATCH=16
+DEVICE="0"
+NAME="train"
+RESUME_FLAG=""
+
+show_help() {
+cat << EOF
+用法: $0 [选项]
+
+选项:
+  --model   <n|s|m|l>   模型大小 (默认: s)
+  --epochs  <num>        训练轮数 (默认: 200)
+  --imgsz   <size>       图像大小 (默认: 640)
+  --batch   <size>       批次大小 (默认: 16)
+  --device  <id>         GPU ID  (默认: 0)
+  --name    <name>       实验名称 (默认: train)
+  --resume               从上次中断处继续
+  --help                 显示帮助
+
+预设配置 (覆盖以上参数):
+  --quick      快速测试  : nano,   50  轮, 640px, batch=32
+  --standard   标准训练  : small,  200 轮, 640px, batch=16
+  --accurate   高精度    : medium, 300 轮, 800px, batch=8
+  --best       最佳性能  : large,  400 轮, 1024px, batch=4
+
+关键点说明:
+  0: CR  右侧锁骨最高点
+  1: CL  左侧锁骨最高点
+  2: IR  右侧髂骨最高点
+  3: IL  左侧髂骨最高点
+  4: SR  骶一上终板右缘点
+  5: SL  骶一上终板左缘点
+
+示例:
+  $0 --standard
+  $0 --model m --epochs 300 --device 0
+  $0 --best --device 0,1
+EOF
+}
+
+# ── 解析参数 ──────────────────────────────────────────────────
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --model)   MODEL="$2";  shift 2 ;;
+    --epochs)  EPOCHS="$2"; shift 2 ;;
+    --imgsz)   IMGSZ="$2";  shift 2 ;;
+    --batch)   BATCH="$2";  shift 2 ;;
+    --device)  DEVICE="$2"; shift 2 ;;
+    --name)    NAME="$2";   shift 2 ;;
+    --resume)  RESUME_FLAG="--resume"; shift ;;
+    --quick)
+      MODEL="n"; EPOCHS=50; IMGSZ=640; BATCH=32; NAME="quick_test"; shift ;;
+    --standard)
+      MODEL="s"; EPOCHS=200; IMGSZ=640; BATCH=16; NAME="standard"; shift ;;
+    --accurate)
+      MODEL="m"; EPOCHS=300; IMGSZ=800; BATCH=8; NAME="high_accuracy"; shift ;;
+    --best)
+      MODEL="l"; EPOCHS=200; IMGSZ=800; BATCH=4; NAME="best_performance"; shift ;;
+    --help) show_help; exit 0 ;;
+    *) echo "❌ 未知参数: $1"; show_help; exit 1 ;;
+  esac
+done
+
+# ── 环境检查 ──────────────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+echo "=========================================================="
+echo "🚀  AP 正面模型训练 — 六关键点姿态检测 (Pose)"
+echo "    CR / CL / IR / IL / SR / SL"
+echo "=========================================================="
+echo "  模型大小 : YOLO11${MODEL}-pose"
+echo "  训练轮数 : ${EPOCHS}"
+echo "  图像大小 : ${IMGSZ}"
+echo "  批次大小 : ${BATCH}"
+echo "  GPU 设备 : ${DEVICE}"
+echo "  实验名称 : ${NAME}"
+echo "  继续训练 : ${RESUME_FLAG:-否}"
+echo "=========================================================="
+echo ""
+
+if [ ! -f "pose_data.yaml" ]; then
+  echo "❌ 错误: pose_data.yaml 不存在"; exit 1
+fi
+
+if ! python3 -c "import ultralytics" 2>/dev/null; then
+  echo "❌ 错误: 未安装 ultralytics — pip install ultralytics"; exit 1
+fi
+
+# ── 开始训练 ──────────────────────────────────────────────────
+python3 train_pose.py \
+  --model  "$MODEL"  \
+  --epochs "$EPOCHS" \
+  --imgsz  "$IMGSZ"  \
+  --batch  "$BATCH"  \
+  --device "$DEVICE" \
+  --name   "$NAME"   \
+  $RESUME_FLAG
+
+echo ""
+echo "=========================================================="
+echo "✅  训练完成！"
+echo "   最佳模型: runs/pose/${NAME}/weights/best.pt"
+echo "   结果图表: runs/pose/${NAME}/results.png"
+echo "=========================================================="
