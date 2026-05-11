@@ -71,3 +71,8 @@ example/*
 *.DS_Store
 *.pt
 *.csv
+
+datasets
+5-optimize
+runs
+output
