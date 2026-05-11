@@ -76,3 +76,6 @@ datasets
 5-optimize
 runs
 output
+
+# 推理结果文件
+3-inference/example/*_result.json
