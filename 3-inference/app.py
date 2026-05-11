@@ -24,6 +24,38 @@ import sys
 import math
 import numpy as np
 from pathlib import Path
+
+# ==================== 去重工具 ====================
+def _box_iou(b1, b2):
+    ix1, iy1 = max(b1[0], b2[0]), max(b1[1], b2[1])
+    ix2, iy2 = min(b1[2], b2[2]), min(b1[3], b2[3])
+    inter = max(0, ix2-ix1) * max(0, iy2-iy1)
+    a1 = (b1[2]-b1[0]) * (b1[3]-b1[1])
+    a2 = (b2[2]-b2[0]) * (b2[3]-b2[1])
+    return inter / (a1 + a2 - inter + 1e-6)
+
+def _reassign_by_ypos(keypoints, boxes, conf_thr, iou_thr=0.3):
+    """
+    IoU 去空间重叠 + 按 y 从上到下排序
+    返回 list of (new_rank, orig_idx)
+    """
+    cands = []
+    for i in range(len(keypoints)):
+        if float(boxes.conf[i]) < conf_thr:
+            continue
+        kp = keypoints[i]
+        yc = float(kp[:, 1].mean())
+        b  = boxes.xyxy[i].cpu().numpy()
+        cands.append((float(boxes.conf[i]), i, yc, b))
+    # 按置信度降序贪心 NMS
+    cands.sort(key=lambda x: -x[0])
+    kept = []
+    for c in cands:
+        if not any(_box_iou(c[3], k[3]) > iou_thr for k in kept):
+            kept.append(c)
+    # 按 y 从上到下，赋予新编号
+    kept.sort(key=lambda x: x[2])
+    return [(rank, c[1]) for rank, c in enumerate(kept)]
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -45,10 +77,20 @@ class Measurement(BaseModel):
     type: str
     points: List[PointXY]
 
+class VertebраCorners(BaseModel):
+    tl: List[float]
+    tr: List[float]
+    br: List[float]
+    bl: List[float]
+    confidence: float
+
 class AnnotationsResponse(BaseModel):
     """前端交互系统需要的格式"""
     imageId: str
     measurements: List[Measurement]
+    vertebrae: Optional[Dict[str, Any]] = None   # V0~Vn 角点，用于可视化
+    imageWidth: Optional[int] = None
+    imageHeight: Optional[int] = None
 
 # ==================== 初始化 ====================
 app = FastAPI(
@@ -148,13 +190,13 @@ def infer_pose_corner(img: np.ndarray) -> Dict[str, dict]:
         keypoints = result.keypoints.data.cpu().numpy()
         boxes = result.boxes
 
-        for i, kpts in enumerate(keypoints):
-            conf = float(boxes.conf[i])
-            if conf < CONF_THRESHOLD:
-                continue
+        # IoU 去重 + 按 y 从上到下排序，new_rank 即解剖位置编号
+        assignments = _reassign_by_ypos(keypoints, boxes, CONF_THRESHOLD)
 
-            cls_id = int(boxes.cls[i])
-            cls_name = class_names[cls_id] if cls_id < len(class_names) else f"V{cls_id}"
+        for new_rank, i in assignments:
+            kpts = keypoints[i]
+            conf = float(boxes.conf[i])
+            cls_name = f"V{new_rank}"   # 用 y-排序编号，不依赖模型预测类别
 
             corners = {}
             for j, (x, y, v) in enumerate(kpts):
@@ -171,7 +213,7 @@ def infer_pose_corner(img: np.ndarray) -> Dict[str, dict]:
                 "y": (tl["y"] + tr["y"] + bl["y"] + br["y"]) / 4
             }
 
-            vertebrae[cls_name] = {"corners": corners, "confidence": conf, "class_id": cls_id}
+            vertebrae[cls_name] = {"corners": corners, "confidence": conf, "class_id": new_rank}
 
     return vertebrae
 
@@ -194,9 +236,12 @@ def convert_to_annotations(
     """
     measurements = []
 
-    # 1. T1 Tilt - T1(V1)上终板左右端点
-    if "V1" in vertebrae_data:
-        v1 = vertebrae_data["V1"]["corners"]
+    # 1. T1 Tilt - 从上往下第二节椎体(V1)上终板左右端点
+    #    V0=最顶部检测到的椎体(通常为C7), V1=其下方第一节(通常为T1)
+    #    若图像顶部截断，V0即为最顶部可见椎体
+    t1_key = "V1" if "V1" in vertebrae_data else "V0"
+    if t1_key in vertebrae_data:
+        v1 = vertebrae_data[t1_key]["corners"]
         measurements.append({
             "type": "T1 Tilt",
             "points": [
@@ -288,7 +333,7 @@ def convert_to_annotations(
                 ]
             })
 
-    # 7. TS (躯干偏移/C7偏移) - C7(V0)中心 和 CSVL上对应点
+    # 7. TS (躯干偏移/C7偏移) - 最顶部椎体(V0)中心 和 CSVL上对应点
     if "V0" in vertebrae_data and csvl_x is not None:
         c7_center = vertebrae_data["V0"]["corners"]["center"]
         measurements.append({
@@ -356,6 +401,21 @@ async def predict(
 
     # 转换为前端格式
     result = convert_to_annotations(pose_data, vertebrae_data, image_id)
+
+    # 附加椎体角点数据（供 visualize_result.py 使用）
+    vertebrae_simple = {}
+    for vname, vdata in vertebrae_data.items():
+        c = vdata["corners"]
+        vertebrae_simple[vname] = {
+            "tl": [c["top_left"]["x"],     c["top_left"]["y"]],
+            "tr": [c["top_right"]["x"],    c["top_right"]["y"]],
+            "br": [c["bottom_right"]["x"], c["bottom_right"]["y"]],
+            "bl": [c["bottom_left"]["x"],  c["bottom_left"]["y"]],
+            "confidence": round(vdata["confidence"], 3)
+        }
+    result["vertebrae"]  = vertebrae_simple
+    result["imageWidth"]  = img.shape[1]
+    result["imageHeight"] = img.shape[0]
 
     return result
 
