@@ -1,0 +1,20 @@
+# AP 正面脊柱解剖标志点检测数据集配置
+# YOLO Detect 格式: 6 类，每类对应一个解剖标志点小 bbox
+# 由 convert_pose_to_detection.py 从 pose_data 转换生成
+
+path: ../datasets/pose_det_data
+train: images/train
+val:   images/val
+test:  images/test
+
+# 类别数
+nc: 6
+
+# 类别名称 (与原 Pose 关键点顺序一致)
+names:
+  0: CR   # 右侧锁骨最高点
+  1: CL   # 左侧锁骨最高点
+  2: IR   # 右侧髂骨最高点
+  3: IL   # 左侧髂骨最高点
+  4: SR   # 骶一上终板右缘点
+  5: SL   # 骶一上终板左缘点
