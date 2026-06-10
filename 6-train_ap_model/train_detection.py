@@ -105,8 +105,8 @@ def main():
         weight_decay=0.0005,
         warmup_epochs=3.0,
 
-        # 多尺度训练，提升鲁棒性
-        multi_scale=True,
+        # multi_scale=True 会随机缩小图像，导致特征图 1×1 时 BatchNorm 崩溃
+        multi_scale=False,
         rect=False,
 
         # 数据增强 (正面脊柱: 不上下翻转)
