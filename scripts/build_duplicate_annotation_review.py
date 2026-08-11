@@ -102,11 +102,18 @@ def task_delta(candidates: list[dict[str, Any]], labels: frozenset[str]) -> dict
     total = 0.0
     count = 0
     pairwise: list[dict[str, Any]] = []
+    label_sets = [labels & candidate["points"].keys() for candidate in candidates]
+    structure_conflict = any(label_set != label_sets[0] for label_set in label_sets[1:])
+    source_conflict = False
     for left_index in range(len(candidates)):
         for right_index in range(left_index + 1, len(candidates)):
             left = candidates[left_index]["points"]
             right = candidates[right_index]["points"]
             common = sorted(labels & left.keys() & right.keys())
+            source_mismatches = [
+                label for label in common if left[label]["source"] != right[label]["source"]
+            ]
+            source_conflict = source_conflict or bool(source_mismatches)
             distances = [
                 math.hypot(left[label]["x"] - right[label]["x"], left[label]["y"] - right[label]["y"])
                 for label in common
@@ -121,6 +128,11 @@ def task_delta(candidates: list[dict[str, Any]], labels: frozenset[str]) -> dict
                     "left": left_index,
                     "right": right_index,
                     "common": len(common),
+                    "left_count": len(label_sets[left_index]),
+                    "right_count": len(label_sets[right_index]),
+                    "only_left": sorted(label_sets[left_index] - label_sets[right_index]),
+                    "only_right": sorted(label_sets[right_index] - label_sets[left_index]),
+                    "source_mismatches": source_mismatches,
                     "max_delta": pair_max,
                     "mean_delta": pair_mean,
                 }
@@ -128,6 +140,9 @@ def task_delta(candidates: list[dict[str, Any]], labels: frozenset[str]) -> dict
     return {
         "max_delta": maximum,
         "mean_delta": total / count if count else 0.0,
+        "structure_conflict": structure_conflict,
+        "source_conflict": source_conflict,
+        "has_conflict": maximum > 0 or structure_conflict or source_conflict,
         "pairwise": pairwise,
     }
 
@@ -317,8 +332,8 @@ async function draw(canvas,g,c){const im=await loadImage(g.thumbnail);canvas.wid
 if($('showSpine').checked){for(const v of ['C7','T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12','L1','L2','L3','L4','L5']){const ls=[1,2,4,3].map(n=>`${v}-${n}`).filter(k=>pts[k]);if(ls.length>1){x.beginPath();ls.forEach((k,i)=>{const p=pts[k];i?x.lineTo(p.x*sx,p.y*sy):x.moveTo(p.x*sx,p.y*sy)});x.closePath();x.strokeStyle=colorFor(v+'-1');x.lineWidth=Math.max(2,sx/700);x.stroke()}for(let n=1;n<=4;n++){const k=`${v}-${n}`,p=pts[k];if(!p)continue;dot(x,p.x*sx,p.y*sy,colorFor(k),Math.max(2.5,sx/380),$('showLabels').checked?k:'')}}}
 if($('showSix').checked){for(const [a,b] of [['CL','CR'],['IL','IR'],['SL','SR']])if(pts[a]&&pts[b]){x.beginPath();x.moveTo(pts[a].x*sx,pts[a].y*sy);x.lineTo(pts[b].x*sx,pts[b].y*sy);x.strokeStyle='#fff';x.lineWidth=Math.max(2,sx/450);x.stroke()}for(const k of ['CL','CR','IL','IR','SL','SR']){const p=pts[k];if(p)dot(x,p.x*sx,p.y*sy,colorFor(k),Math.max(6,sx/120),k)}}}
 function dot(x,px,py,color,r,label){x.beginPath();x.arc(px,py,r,0,Math.PI*2);x.fillStyle=color;x.fill();x.strokeStyle='#fff';x.lineWidth=1.5;x.stroke();if(label){x.font=`bold ${Math.max(12,Math.round(r*1.7))}px sans-serif`;x.fillStyle=color;x.strokeStyle='#000';x.lineWidth=3;x.strokeText(label,px+r+3,py-r);x.fillText(label,px+r+3,py-r)}}
-function render(){rebuildFilter();const g=filtered[current];if(!g)return;$('jump').max=pkg.group_count;$('jump').value=g.number;$('groupTitle').innerHTML=`<strong>${g.id}</strong>　SHA ${g.sha256.slice(0,16)}…　<span class="pill">${g.candidate_count}个候选</span>`;$('metrics').textContent=`六点最大差异 ${g.six_delta.max_delta.toFixed(6)}，平均 ${g.six_delta.mean_delta.toFixed(6)}；脊柱点最大差异 ${g.spine_delta.max_delta.toFixed(6)}，平均 ${g.spine_delta.mean_delta.toFixed(6)}`;
-const cards=$('cards');cards.innerHTML='';g.candidates.forEach((c,i)=>{const a=document.createElement('article');a.className='card';a.innerHTML=`<h2>图${i+1}｜${esc(c.annotation)}</h2><div class="meta">imageId=${esc(c.image_id)}｜六点 ${c.six_count}/6｜脊柱 ${c.spine_count}/72｜来源 ${esc(JSON.stringify(c.source_counts))}</div><div class="canvas-wrap"><canvas></canvas></div>`;cards.appendChild(a);draw(a.querySelector('canvas'),g,c)});
+function render(){rebuildFilter();const g=filtered[current];if(!g)return;$('jump').max=pkg.group_count;$('jump').value=g.number;$('groupTitle').innerHTML=`<strong>${g.id}</strong>　SHA ${g.sha256.slice(0,16)}…　<span class="pill">${g.candidate_count}个候选</span>`;
+const sixStructure=g.six_delta.structure_conflict?'是':'否',spineStructure=g.spine_delta.structure_conflict?'是':'否';$('metrics').textContent=`六点最大坐标差 ${g.six_delta.max_delta.toFixed(6)}、结构差异 ${sixStructure}；脊柱点最大坐标差 ${g.spine_delta.max_delta.toFixed(6)}、结构差异 ${spineStructure}`;const cards=$('cards');cards.innerHTML='';g.candidates.forEach((c,i)=>{const a=document.createElement('article');a.className='card';a.innerHTML=`<h2>图${i+1}｜${esc(c.annotation)}</h2><div class="meta">imageId=${esc(c.image_id)}｜六点 ${c.six_count}/6｜脊柱 ${c.spine_count}/72｜来源 ${esc(JSON.stringify(c.source_counts))}</div><div class="canvas-wrap"><canvas></canvas></div>`;cards.appendChild(a);draw(a.querySelector('canvas'),g,c)});
 const choices=$('choices');choices.innerHTML='';g.candidates.forEach((c,i)=>{const b=document.createElement('button');b.textContent=`选择图${i+1}`;b.className=state[g.id]?.choice===`candidate:${i}`?'selected':'';b.onclick=()=>choose(`candidate:${i}`);choices.appendChild(b)});const no=document.createElement('button');no.textContent='两个/全部都不对';no.className='danger '+(state[g.id]?.choice==='neither'?'selected':'');no.onclick=()=>choose('neither');choices.appendChild(no);$('note').value=state[g.id]?.note||'';updateProgress()}
 function esc(v){return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
 function choose(choice){const g=filtered[current];state[g.id]={...(state[g.id]||{}),choice,updated_at:new Date().toISOString()};save();render();if($('autoNext').checked)setTimeout(()=>move(1),180)}function move(n){current=Math.max(0,Math.min(filtered.length-1,current+n));render();scrollTo({top:0,behavior:'smooth'})}

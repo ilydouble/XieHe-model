@@ -37,6 +37,18 @@ def write_candidate(root: Path, stem: str, color: int, offset: float) -> tuple[s
 
 
 class DuplicateAnnotationReviewTest(unittest.TestCase):
+    def test_task_delta_treats_missing_labels_as_structure_conflict(self):
+        candidates = [
+            {"points": {"CL": {"x": 0.2, "y": 0.3, "source": "manual"}}},
+            {"points": {}},
+        ]
+
+        result = duplicate_review.task_delta(candidates, duplicate_review.SIX_POINT_LABELS)
+
+        self.assertEqual(result["max_delta"], 0.0)
+        self.assertTrue(result["structure_conflict"])
+        self.assertTrue(result["has_conflict"])
+
     def test_builds_two_and_three_candidate_groups_with_fallback(self):
         with tempfile.TemporaryDirectory() as temp:
             base = Path(temp)
