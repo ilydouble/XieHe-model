@@ -54,6 +54,38 @@ class LegacySixPointAuditTest(unittest.TestCase):
             self.assertEqual(len(result["exact_duplicate_groups"]), 1)
             self.assertEqual(len(result["cross_split_exact_duplicate_groups"]), 1)
 
+    def test_flags_left_right_and_iliac_sacral_structure_conflicts(self):
+        with tempfile.TemporaryDirectory() as temp:
+            pose = Path(temp) / "pose"
+            points = (
+                "0.8 0.2 1 "  # CR is incorrectly to the right of CL.
+                "0.2 0.2 1 "
+                "0.3 0.7 1 "
+                "0.7 0.7 1 "
+                "0.4 0.6 1 "  # Sacral pair is implausibly above iliac pair.
+                "0.6 0.6 1"
+            )
+            write_pair(pose, "train", "bad_structure", f"0 0.5 0.45 0.6 0.5 {points}\n")
+
+            result = legacy_audit.audit(pose, None)
+
+            self.assertEqual(result["issue_reasons"]["clavicle_left_right_order_conflict"], 1)
+            self.assertEqual(result["issue_reasons"]["sacral_pair_above_iliac_pair"], 1)
+            self.assertEqual(result["split_six_point_quality"]["train"]["needs_review"], 1)
+
+    def test_counts_duplicate_images_with_conflicting_labels(self):
+        with tempfile.TemporaryDirectory() as temp:
+            pose = Path(temp) / "pose"
+            points_a = " ".join("0.3 0.4 1" for _ in range(6))
+            points_b = " ".join("0.4 0.4 1" for _ in range(6))
+            write_pair(pose, "train", "a", f"0 0.5 0.5 0.5 0.5 {points_a}\n")
+            write_pair(pose, "val", "b", f"0 0.5 0.5 0.5 0.5 {points_b}\n")
+            (pose / "images" / "val" / "b.png").write_bytes((pose / "images" / "train" / "a.png").read_bytes())
+
+            result = legacy_audit.audit(pose, None)
+
+            self.assertEqual(result["exact_duplicate_label_conflict_groups"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

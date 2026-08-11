@@ -90,6 +90,18 @@ def six_point_reasons(values: list[float], threshold: float) -> list[str]:
         y1, y2 = cy - height / 2, cy + height / 2
         if any(not (x1 - 1e-5 <= x <= x2 + 1e-5 and y1 - 1e-5 <= y <= y2 + 1e-5) for x, y, _ in visible):
             reasons.append("bbox_does_not_enclose_visible_points")
+    if len(visible) == 6:
+        for name, right_index, left_index in (
+            ("clavicle", 0, 1),
+            ("iliac", 2, 3),
+            ("sacral", 4, 5),
+        ):
+            if points[right_index][0] >= points[left_index][0]:
+                reasons.append(f"{name}_left_right_order_conflict")
+        iliac_y = (points[2][1] + points[3][1]) / 2
+        sacral_y = (points[4][1] + points[5][1]) / 2
+        if sacral_y < iliac_y - 0.01:
+            reasons.append("sacral_pair_above_iliac_pair")
     return reasons
 
 
@@ -124,6 +136,8 @@ def rows_close(left: list[list[float]], right: list[list[float]], tolerance: flo
 def audit(pose_dir: Path, detection_dir: Path | None, threshold: float = 0.2) -> dict[str, Any]:
     issues: list[dict[str, str]] = []
     pose_counts: Counter[str] = Counter()
+    split_label_types: dict[str, Counter[str]] = {}
+    split_six_point_quality: dict[str, Counter[str]] = {}
     split_counts: dict[str, dict[str, int]] = {}
     six_labels: dict[tuple[str, str], list[float]] = {}
     visibility: Counter[str] = Counter()
@@ -134,6 +148,8 @@ def audit(pose_dir: Path, detection_dir: Path | None, threshold: float = 0.2) ->
         images = image_map(pose_dir, split)
         labels = label_map(pose_dir, split)
         split_counts[split] = {"images": len(images), "labels": len(labels)}
+        split_label_types[split] = Counter()
+        split_six_point_quality[split] = Counter()
         for stem in sorted(images.keys() - labels.keys()):
             issues.append({"split": split, "label": "", "image": images[stem].name, "kind": "pairing", "decision": "排除", "reasons": "image_without_label"})
         for stem in sorted(labels.keys() - images.keys()):
@@ -144,6 +160,7 @@ def audit(pose_dir: Path, detection_dir: Path | None, threshold: float = 0.2) ->
             rows, error = read_rows(label)
             kind = classify_pose(rows) if error is None else "invalid_or_unknown"
             pose_counts[kind] += 1
+            split_label_types[split][kind] += 1
             image_name = images.get(stem).name if stem in images else ""
             if kind == "vertebra_corner_pose":
                 issues.append({"split": split, "label": label.name, "image": image_name, "kind": kind, "decision": "隔离", "reasons": "vertebra_corner_label_in_six_point_dataset"})
@@ -164,11 +181,27 @@ def audit(pose_dir: Path, detection_dir: Path | None, threshold: float = 0.2) ->
                 }
             )
             reasons = six_point_reasons(values, threshold)
+            if "all_visible_points_top_left" in reasons:
+                split_six_point_quality[split]["top_left_systematic_error"] += 1
+            elif reasons:
+                split_six_point_quality[split]["needs_review"] += 1
+            else:
+                split_six_point_quality[split]["automatic_structure_pass"] += 1
             if reasons:
                 decision = "隔离" if "all_visible_points_top_left" in reasons else "待复核"
                 issues.append({"split": split, "label": label.name, "image": image_name, "kind": kind, "decision": decision, "reasons": "|".join(reasons)})
 
     duplicate_groups = [group for group in hashes.values() if len(group) > 1]
+    duplicate_label_conflict_groups = 0
+    for group in duplicate_groups:
+        label_hashes: set[str] = set()
+        for item in group:
+            label = label_map(pose_dir, item["split"]).get(Path(item["image"]).stem)
+            if label is not None:
+                item["label_sha256"] = sha256(label)
+                label_hashes.add(item["label_sha256"])
+        if len(label_hashes) > 1:
+            duplicate_label_conflict_groups += 1
     cross_split_duplicate_groups = [group for group in duplicate_groups if len({item["split"] for item in group}) > 1]
 
     detection_summary: dict[str, Any] | None = None
@@ -210,10 +243,13 @@ def audit(pose_dir: Path, detection_dir: Path | None, threshold: float = 0.2) ->
         "detection_dir": str(detection_dir.resolve()) if detection_dir else None,
         "top_left_threshold": threshold,
         "split_counts": split_counts,
+        "split_label_types": {split: dict(counts) for split, counts in split_label_types.items()},
+        "split_six_point_quality": {split: dict(counts) for split, counts in split_six_point_quality.items()},
         "pose_label_types": dict(sorted(pose_counts.items())),
         "six_point_visibility": dict(sorted(visibility.items())),
         "left_right_patterns": dict(sorted(left_right_patterns.items())),
         "exact_duplicate_groups": duplicate_groups,
+        "exact_duplicate_label_conflict_groups": duplicate_label_conflict_groups,
         "cross_split_exact_duplicate_groups": cross_split_duplicate_groups,
         "detection": detection_summary,
         "issues": issues,
@@ -242,10 +278,15 @@ def write_outputs(result: dict[str, Any], output: Path) -> None:
 - 误混入的椎体四角Pose标签：{counts.get('vertebra_corner_pose', 0)}
 - 无法识别标签：{counts.get('invalid_or_unknown', 0)}
 - 左上角系统性聚集：{reasons.get('all_visible_points_top_left', 0)}
+- 锁骨左右顺序冲突：{reasons.get('clavicle_left_right_order_conflict', 0)}
+- 髂骨左右顺序冲突：{reasons.get('iliac_left_right_order_conflict', 0)}
+- 骶骨左右顺序冲突：{reasons.get('sacral_left_right_order_conflict', 0)}
+- 骶骨点组位于髂骨点组上方：{reasons.get('sacral_pair_above_iliac_pair', 0)}
 - bbox未包含所有可见点：{reasons.get('bbox_does_not_enclose_visible_points', 0)}
 - 建议隔离：{decisions.get('隔离', 0)}
 - 建议待复核：{decisions.get('待复核', 0)}
 - 精确重复图像组：{len(result['exact_duplicate_groups'])}
+- 精确重复但标签不一致组：{result['exact_duplicate_label_conflict_groups']}
 - 跨split精确重复组：{len(result['cross_split_exact_duplicate_groups'])}
 
 ## Pose→Detection一致性
