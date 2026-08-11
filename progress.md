@@ -82,3 +82,4 @@
 - 已核对新旧同影像的三组L/R关系，确认新旧标注方向规则全部相反；并确认六点YAML缺少flip_idx，导致训练脚本中的fliplr=0.5被当前Ultralytics自动禁用。
 - 已完成可复现审计工具实跑，输出 /private/tmp/旧六点数据集审计_20260811/audit.json、issues.csv和report.md；自动结果为83份左上错误隔离和75份椎体任务混入隔离。
 - 已形成 docs/legacy_six_point_dataset_audit.md 专项报告，明确当前可用train=0、val=0，仅有75份test样本通过自动结构检查，且仍需人工复核。旧数据未被修改。
+- 最终断言复验通过：158份真六点、75份椎体混入、83份左上聚集、158份Detection精确派生均与报告一致。完成检查脚本因不识别现有`[complete]`语法而误报，已人工确认专项阶段31–34全部完成。
