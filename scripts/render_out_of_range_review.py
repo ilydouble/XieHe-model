@@ -124,7 +124,7 @@ def render_one(
     logical_width = max_x - min_x
     logical_height = max_y - min_y
     header_height = 150
-    footer_height = 190
+    footer_height = 230
     canvas_width = max(900, round(display_width * logical_width))
     drawing_height = round(display_height * logical_height)
     canvas = Image.new("RGB", (canvas_width, header_height + drawing_height + footer_height), (35, 39, 47))
@@ -176,29 +176,43 @@ def render_one(
         draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=(*color, 220), outline=(255, 255, 255, 255), width=3)
         if is_out:
             draw.ellipse((x - radius - 9, y - radius - 9, x + radius + 9, y + radius + 9), outline=(*color, 230), width=4)
+        text = f"{label} {point['source']} ({point['x']:.4f}, {point['y']:.4f})"
+        text_bbox = draw.textbbox((0, 0), text, font=small_font, stroke_width=1)
+        text_width = text_bbox[2] - text_bbox[0]
+        label_x = x + 20
+        if label_x + text_width + 16 > canvas_width:
+            label_x = x - text_width - 30
+        label_x = max(10, min(label_x, canvas_width - text_width - 16))
         label_box(
             draw,
-            (x + 20, y - 25),
-            f"{label} {point['source']} ({point['x']:.4f}, {point['y']:.4f})",
+            (label_x, y - 25),
+            text,
             small_font,
             color,
         )
 
     footer_y = header_height + drawing_height + 18
-    issue_text = "；".join(
-        f"{label}: x={points[label]['x']:.8f}, y={points[label]['y']:.8f}, source={points[label]['source']}"
+    issue_lines = [
+        f"越界点 {label}: x={points[label]['x']:.8f}, y={points[label]['y']:.8f}, source={points[label]['source']}"
         for label in sorted(issue_labels)
         if label in points
-    )
-    draw.text((24, footer_y), f"越界点：{issue_text}", font=body_font, fill=(255, 120, 120, 255))
+    ]
+    for line_index, line in enumerate(issue_lines):
+        draw.text(
+            (24, footer_y + line_index * 34),
+            line,
+            font=body_font,
+            fill=(255, 120, 120, 255),
+        )
+    note_y = footer_y + max(1, len(issue_lines)) * 34 + 12
     draw.text(
-        (24, footer_y + 45),
+        (24, note_y),
         "注意：红点位于灰色扩展区时，表示真实保存坐标在原始图像范围之外。",
         font=small_font,
         fill=(225, 225, 225, 255),
     )
     original = str(data.get("originalFilename", ""))
-    draw.text((24, footer_y + 82), f"原始文件名：{original}", font=small_font, fill=(200, 205, 215, 255))
+    draw.text((24, note_y + 37), f"原始文件名：{original}", font=small_font, fill=(200, 205, 215, 255))
     output_path.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(output_path, format="PNG", optimize=True)
     return {
