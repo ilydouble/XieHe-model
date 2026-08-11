@@ -80,3 +80,5 @@
 - 已确认75份混入文件与pose_corner_data中的图像和标签全部逐字节一致；另核实2条bbox告警只是1e-6的小数舍入误差，已在审计器中调整为1e-5容差。
 - 已完成256位dHash近重复扫描；确认7对同图重编码副本，每对都是椎体四角混入版本与左上错误六点版本，全部位于test。
 - 已核对新旧同影像的三组L/R关系，确认新旧标注方向规则全部相反；并确认六点YAML缺少flip_idx，导致训练脚本中的fliplr=0.5被当前Ultralytics自动禁用。
+- 已完成可复现审计工具实跑，输出 /private/tmp/旧六点数据集审计_20260811/audit.json、issues.csv和report.md；自动结果为83份左上错误隔离和75份椎体任务混入隔离。
+- 已形成 docs/legacy_six_point_dataset_audit.md 专项报告，明确当前可用train=0、val=0，仅有75份test样本通过自动结构检查，且仍需人工复核。旧数据未被修改。
