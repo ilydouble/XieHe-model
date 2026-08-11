@@ -99,6 +99,7 @@ class DuplicateAnnotationReviewTest(unittest.TestCase):
             html = (output / "打开核对页面.html").read_text(encoding="utf-8")
             self.assertIn("两个/全部都不对", html)
             self.assertIn("导出JSON", html)
+            self.assertIn("jumpToNumber", html)
 
 
 if __name__ == "__main__":
