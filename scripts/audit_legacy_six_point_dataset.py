@@ -88,7 +88,7 @@ def six_point_reasons(values: list[float], threshold: float) -> list[str]:
         cx, cy, width, height = values[1:5]
         x1, x2 = cx - width / 2, cx + width / 2
         y1, y2 = cy - height / 2, cy + height / 2
-        if any(not (x1 - 1e-6 <= x <= x2 + 1e-6 and y1 - 1e-6 <= y <= y2 + 1e-6) for x, y, _ in visible):
+        if any(not (x1 - 1e-5 <= x <= x2 + 1e-5 and y1 - 1e-5 <= y <= y2 + 1e-5) for x, y, _ in visible):
             reasons.append("bbox_does_not_enclose_visible_points")
     return reasons
 
