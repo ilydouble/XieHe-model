@@ -258,3 +258,6 @@
 - 六点`swap_pairs`真实预演得到811份planned、1份skipped；被跳过的是混合左右关系的`2115...`，避免把不能由整批规则一致修正的样本硬性导入。
 - 已用`--tasks spine_pose --apply`将875份角点候选追加到`pose_corner_data/train`，train由594增至1469；val=74、test=75保持不变。导入清单位于`datasets/import_records/e_drive_20260812_corner/`。
 - 合并后角点数据全量为1618对，图像/标签配对正确，全部图像完整解码通过；875份新增标签均为18行、class 0–17、每行17列、四点visibility=2、bbox与x/y坐标在`[0,1]`。全数据精确重复组和跨split重复均为0。
+- 用户确认`assignment_all.xlsx`才是正式人工标注分配表。工作簿为1个sheet、815行数据、815个唯一`Patient_short_id`；第一列仅342个唯一值且474行为`994`，因此可靠白名单键是患者短ID而不是`name_jpg`。
+- 用完整患者ID子串匹配后，旧角点导入875份中871份在assignment白名单、4份不在；六点812份中810份在白名单。4份角点测试图为`1874_影像测试`及`64261572`三图，已移动到可恢复隔离目录。
+- 更正后`pose_corner_data`为train1465、val74、test75，共1614对；新增正式角点871份。全量图像解码、配对、标签格式、assignment归属、精确重复与跨split复核问题均为0。
