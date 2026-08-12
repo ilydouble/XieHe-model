@@ -98,6 +98,9 @@
 - [complete] 83. 记录人工结论，并确认743份排除490份服务器同影像后剩余253份及分区组成
 - [complete] 84. 实现未重叠743角点的确定性分层抽样可视化与离线确认页面
 - [complete] 85. 生成30份真实确认包，视觉抽查、完整性验证并交付到Downloads
+- [complete] 86. 扩展单版本角点核对工具以支持服务器891份净新增池和C7-V17完整显示
+- [complete] 87. 从服务器891份中确定性抽取30份，生成预览、标签副本和离线确认页面
+- [complete] 88. 视觉抽查、验证样本池/文件完整性并交付到Downloads
 
 ## 遇到的错误
 
@@ -132,3 +135,7 @@
 | 当前数据含RGB/RGBA图，首轮部分指纹数组形状不一致 | 1 | 显式convert为灰度L后补算失败批次，随后完成1614张全量扫描 |
 | 新核对包测试动态加载dataclass模块时未注册sys.modules | 1 | 测试加载前以spec.name注册模块，兼容Python 3.12 dataclasses类型解析 |
 | 首轮核对包生成出现Pillow未关闭文件ResourceWarning | 1 | 在已有Image上下文内记录原图尺寸，不再为尺寸单独打开文件；重新测试并重生成真实包 |
+| 服务器模式HTML模板误用JavaScript的replaceAll作为Python字符串方法 | 1 | 改为Python str.replace；清除不完整输出后重新运行双模式测试和真实生成 |
+| 首轮服务器样本按全池哈希等距抽取导致split比例偏离 | 1 | 改为先按各split规模做最大余数分配，再在split内稳定等距抽样；最终为train/val/test 24/3/3 |
+| 系统默认Python缺少Pillow，Miniconda按模块名运行又因tests非包而失败 | 2 | 改用已安装Pillow的Miniconda解释器直接运行测试文件，测试通过；未安装新依赖 |
+| 分层抽样在某split配额为0时仍会取中间样本 | 1 | 对零配额显式跳过并新增小样本回归测试，避免返回数量超过请求数 |
