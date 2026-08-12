@@ -50,6 +50,13 @@ def write_manifests(root: Path) -> None:
     )
 
 
+def make_mixed_lr(data: dict) -> dict:
+    for item in data["vertebrae"]:
+        if item.get("label") in {"CR", "CL"}:
+            item["point"]["x"] = 0.1 if item["label"] == "CR" else 0.9
+    return data
+
+
 class ImportTrainingDataTests(unittest.TestCase):
     def test_converts_expected_keypoint_orders(self) -> None:
         data = annotation()
@@ -70,6 +77,28 @@ class ImportTrainingDataTests(unittest.TestCase):
             image = Image.new("L", (3, 1)); image.putdata([0, 127, 255]); image.save(source)
             builder.ImageOps.mirror(image).save(destination)
             self.assertTrue(builder.mirrored_pixels_equal(source, destination))
+
+    def test_batch_lr_policy_skips_mixed_pattern(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); export = root / "export"; export.mkdir()
+            Image.new("L", (100, 200), 128).save(export / "1_case.png")
+            data = make_mixed_lr(annotation())
+            (export / "1_case_label.json").write_text(json.dumps(data), encoding="utf-8")
+            manifests = root / "manifests"; write_manifests(manifests)
+            (manifests / "清单汇总.json").write_text(
+                json.dumps({"rules": {"accepted_six_anomalies": ["1_case_label.json"]}}),
+                encoding="utf-8",
+            )
+            pose = root / "pose"; corner = root / "corner"
+            for target in (pose, corner):
+                for split in ("train", "val", "test"):
+                    (target / "images" / split).mkdir(parents=True)
+                    (target / "labels" / split).mkdir(parents=True)
+            result = builder.build(
+                export, manifests, pose, corner, root / "output",
+                tasks=("six_point",), six_lr_policy="swap_pairs",
+            )
+            self.assertEqual(result["summary"]["six_point"]["statuses"], {"skipped": 1})
 
     def test_dry_run_and_apply_are_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

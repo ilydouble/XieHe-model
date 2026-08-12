@@ -224,14 +224,13 @@ def plan_task(
             verify_image(image, data, validated_images)
             if task == "six_point":
                 accepted_anomaly = annotation.name in accepted_six_anomalies
+                lr_pattern = six_lr_pattern(data, accepted_anomaly=accepted_anomaly)
                 label_text = six_point_yolo(
                     data,
                     accepted_anomaly=accepted_anomaly,
                     lr_policy=six_lr_policy,
                 )
-                record["six_lr_pattern"] = six_lr_pattern(
-                    data, accepted_anomaly=accepted_anomaly
-                )
+                record["six_lr_pattern"] = lr_pattern
                 record["image_transform"] = (
                     "horizontal_mirror" if six_lr_policy == "mirror_image" else "none"
                 )
@@ -250,7 +249,16 @@ def plan_task(
                     "label_text": label_text,
                 }
             )
-            if image_hash in known_hashes:
+            if (
+                task == "six_point"
+                and six_lr_policy in {"swap_pairs", "mirror_image"}
+                and record["six_lr_pattern"] != "opposite_to_target"
+            ):
+                record.update(
+                    status="skipped",
+                    reason="六点左右关系不是可按整批策略自动统一的完全相反模式",
+                )
+            elif image_hash in known_hashes:
                 record.update(status="skipped", reason="与目标数据集现有图像内容重复")
             elif image_hash in planned_hashes:
                 record.update(status="skipped", reason="本次任务候选内部图像内容重复")
