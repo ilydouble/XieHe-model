@@ -3,6 +3,8 @@
 > 分析时间: 2025-12-03  
 > 项目: 基于 YOLO 的脊柱 X 光片分析
 
+> 当前数据更新（2026-08-12）：本报告下方原始统计和模型指标保留为2025年历史记录。当前`pose_data`为1755份（1456/149/150）；当前`pose_corner_data`为2499份（2223/137/139），由服务器去重角点1381份与人工标注1118份组成。两套当前数据均已通过全量解码、配对、标签结构和精确重复检查。详见`docs/duplicate_review_training_increment_analysis.md`与`docs/corner_dataset_server_rebuild_report.md`。
+
 ---
 
 ## 1. 数据集概览
@@ -266,4 +268,3 @@ class x_c y_c w h corner1_x corner1_y corner1_v corner2_x corner2_y corner2_v ..
 ---
 
 *报告生成工具: `1-data_report/analyze_dataset.py`*
-
