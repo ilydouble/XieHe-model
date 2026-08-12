@@ -144,25 +144,25 @@ class ImportTrainingDataTests(unittest.TestCase):
 
             dry = builder.build(export, manifests, pose, corner, root / "dry")
             self.assertEqual(dry["summary"]["six_point"]["statuses"], {"planned": 1})
-            blocked = builder.build(export, manifests, pose, corner, root / "blocked", apply=True)
-            self.assertEqual(blocked["requested_mode"], "apply")
-            self.assertEqual(blocked["mode"], "dry_run")
-            self.assertTrue(blocked["blocked_reasons"])
             applied = builder.build(
                 export, manifests, pose, corner, root / "applied", apply=True,
-                six_lr_policy="swap_pairs",
+                six_lr_policy="block",
             )
+            self.assertEqual(applied["requested_mode"], "apply")
+            self.assertEqual(applied["mode"], "apply")
+            self.assertFalse(applied["blocked_reasons"])
+            self.assertEqual(applied["summary"]["six_point"]["statuses"], {"imported": 1})
             self.assertEqual(applied["summary"]["spine_pose"]["statuses"], {"imported": 1})
             again = builder.build(
                 export, manifests, pose, corner, root / "again", apply=True,
-                six_lr_policy="swap_pairs",
+                six_lr_policy="block",
             )
             self.assertEqual(again["summary"]["six_point"]["statuses"], {"skipped": 1})
             self.assertEqual(len((pose / "labels" / "train" / "eap_1_case.txt").read_text().split()), 23)
             self.assertEqual(len((corner / "labels" / "train" / "eap_1_case.txt").read_text().splitlines()), 18)
             self.assertTrue((root / "dry" / "sha256_cache.json").exists())
             pose_values = (pose / "labels" / "train" / "eap_1_case.txt").read_text().split()
-            self.assertEqual(pose_values[5:11], ["0.20000000", "0.20000000", "2", "0.80000000", "0.20000000", "2"])
+            self.assertEqual(pose_values[5:11], ["0.80000000", "0.20000000", "2", "0.20000000", "0.20000000", "2"])
 
 
 if __name__ == "__main__":

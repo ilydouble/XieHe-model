@@ -185,11 +185,11 @@ def six_point_yolo(
 def six_lr_pattern(data: dict[str, Any], *, accepted_anomaly: bool = False) -> str:
     info = extract_task(data, "six_point", accepted_six_anomaly=accepted_anomaly)
     target_relations = [
-        info["points"][right][0] < info["points"][left][0]
+        info["points"][left][0] < info["points"][right][0]
         for right, left in (("CR", "CL"), ("IR", "IL"), ("SR", "SL"))
     ]
     if all(target_relations):
-        return "matches_target_CR_IR_SR_on_image_left"
+        return "matches_target_CL_IL_SL_on_image_left"
     if not any(target_relations):
         return "opposite_to_target"
     return "mixed"
@@ -481,7 +481,7 @@ def build(
     )
     compatibility_issues: list[str] = []
     if any(
-        pattern not in {"matches_target_CR_IR_SR_on_image_left", "not_checked"}
+        pattern not in {"matches_target_CL_IL_SL_on_image_left", "not_checked"}
         for pattern in lr_counts
     ):
         compatibility_issues.append("E盘六点左右语义约定与现有pose_data不一致")

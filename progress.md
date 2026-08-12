@@ -1,5 +1,18 @@
 # 训练导出数据审计进度
 
+## 2026-08-12：旧六点训练标签左右语义统一
+
+- 用户确认采用XieHe-System前端领域语义作为统一规范，开始修正当前`datasets/pose_data`旧六点训练标签。
+- 本次只交换三对关键点槽位`CR/CL`、`IR/IL`、`SR/SL`；不镜像图像，不修改bbox、split或坐标数值，并先建立逐文件哈希备份。
+- 当前活动集为685份（train 533、val 77、test 75），全部是单行23列且全部为旧约定`CR<CL、IR<IL、SR<SL`，不存在混合方向样本。
+- 已新增可预演、可备份、可幂等执行的修正脚本及测试，并将训练YAML补充`flip_idx: [1,0,3,2,5,4]`；同时把E盘导入器目标方向改为新规范。
+- 默认Python运行E盘导入器测试时缺少Pillow；未安装依赖，按仓库既有做法改用`/opt/miniconda3/envs/cv/bin/python`复测。
+- 已正式备份并修正685份活动Pose标签；逐份断言bbox前5列不变，六个关键点仅按`[1,0,3,2,5,4]`置换，图像树SHA-256前后均为`8cadff...f37b4`。
+- 修正后685份全部满足`CL<CR、IL<IR、SL<SR`；专项审计得到685份六点Pose、0个问题，重复执行修正脚本显示0份待修改。
+- 已同步75份仍有对应Pose的派生Detection标签并备份；83份没有当前Pose的孤立旧Detection标签内容摘要前后相同，未修改也未删除。最终Pose→Detection为75份精确一致、0份不一致。
+- 修正备份位于`datasets/pose_data_lr_backup_20260812/`，包含685份Pose原标签、75份Detection原标签及逐文件SHA-256清单。
+- 已新增`docs/pose_lr_normalization_report_20260812.md`记录规范、执行统计、验证摘要、Detection同步和XieHe-System部署注意事项；阶段59–62完成。
+
 ## 2026-08-11
 
 - 已读取 `planning-with-files-zh` 技能说明。

@@ -96,7 +96,7 @@ def six_point_reasons(values: list[float], threshold: float) -> list[str]:
             ("iliac", 2, 3),
             ("sacral", 4, 5),
         ):
-            if points[right_index][0] >= points[left_index][0]:
+            if points[left_index][0] >= points[right_index][0]:
                 reasons.append(f"{name}_left_right_order_conflict")
         iliac_y = (points[2][1] + points[3][1]) / 2
         sacral_y = (points[4][1] + points[5][1]) / 2
@@ -175,9 +175,9 @@ def audit(pose_dir: Path, detection_dir: Path | None, threshold: float = 0.2) ->
             visibility.update(str(int(point[2])) for point in points)
             left_right_patterns.update(
                 {
-                    "CR_left_of_CL": int(points[0][0] < points[1][0]),
-                    "IR_left_of_IL": int(points[2][0] < points[3][0]),
-                    "SR_left_of_SL": int(points[4][0] < points[5][0]),
+                    "CL_left_of_CR": int(points[1][0] < points[0][0]),
+                    "IL_left_of_IR": int(points[3][0] < points[2][0]),
+                    "SL_left_of_SR": int(points[5][0] < points[4][0]),
                 }
             )
             reasons = six_point_reasons(values, threshold)

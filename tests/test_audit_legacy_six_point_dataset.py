@@ -58,12 +58,12 @@ class LegacySixPointAuditTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             pose = Path(temp) / "pose"
             points = (
-                "0.8 0.2 1 "  # CR is incorrectly to the right of CL.
-                "0.2 0.2 1 "
-                "0.3 0.7 1 "
+                "0.2 0.2 1 "  # CR is incorrectly to the left of CL.
+                "0.8 0.2 1 "
                 "0.7 0.7 1 "
-                "0.4 0.6 1 "  # Sacral pair is implausibly above iliac pair.
-                "0.6 0.6 1"
+                "0.3 0.7 1 "
+                "0.6 0.6 1 "  # Sacral pair is implausibly above iliac pair.
+                "0.4 0.6 1"
             )
             write_pair(pose, "train", "bad_structure", f"0 0.5 0.45 0.6 0.5 {points}\n")
 
