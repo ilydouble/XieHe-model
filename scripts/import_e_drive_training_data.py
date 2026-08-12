@@ -8,9 +8,11 @@ import csv
 import hashlib
 import json
 import shutil
+import zipfile
 from collections import Counter
 from pathlib import Path
 from typing import Any, Callable
+from xml.etree import ElementTree
 
 from PIL import Image, ImageOps
 
@@ -36,6 +38,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--pose-target", required=True, type=Path, help="六点YOLO数据集目录")
     parser.add_argument("--corner-target", required=True, type=Path, help="椎体角点YOLO数据集目录")
     parser.add_argument("--output-dir", required=True, type=Path, help="导入报告与机器清单目录")
+    parser.add_argument(
+        "--assignment-xlsx",
+        type=Path,
+        help="正式人工标注分配表；提供后仅处理Patient_short_id出现在文件名中的样本",
+    )
     parser.add_argument("--prefix", default="eap_", help="新增文件名前缀，默认eap_")
     parser.add_argument(
         "--tasks",
@@ -69,6 +76,65 @@ def read_trainable_rows(path: Path) -> list[dict[str, str]]:
     if not rows or not required.issubset(rows[0]):
         raise ValueError(f"清单字段不完整：{path}")
     return [row for row in rows if row["判定"] == "可训练"]
+
+
+def read_assignment_patient_ids(path: Path) -> set[str]:
+    """Read Patient_short_id from a simple XLSX using only the Python standard library."""
+    spreadsheet_ns = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    relationships_ns = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    package_rel_ns = "http://schemas.openxmlformats.org/package/2006/relationships"
+    with zipfile.ZipFile(path) as archive:
+        shared_strings: list[str] = []
+        if "xl/sharedStrings.xml" in archive.namelist():
+            root = ElementTree.fromstring(archive.read("xl/sharedStrings.xml"))
+            shared_strings = [
+                "".join(node.text or "" for node in item.iter(f"{{{spreadsheet_ns}}}t"))
+                for item in root.findall(f"{{{spreadsheet_ns}}}si")
+            ]
+        workbook = ElementTree.fromstring(archive.read("xl/workbook.xml"))
+        first_sheet = workbook.find(f".//{{{spreadsheet_ns}}}sheet")
+        if first_sheet is None:
+            raise ValueError(f"Excel中没有工作表：{path}")
+        relationship_id = first_sheet.attrib[f"{{{relationships_ns}}}id"]
+        relationships = ElementTree.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
+        target = next(
+            node.attrib["Target"]
+            for node in relationships.findall(f"{{{package_rel_ns}}}Relationship")
+            if node.attrib["Id"] == relationship_id
+        )
+        sheet_path = f"xl/{target.lstrip('/')}" if not target.startswith("xl/") else target
+        sheet = ElementTree.fromstring(archive.read(sheet_path))
+
+    def cell_value(cell: ElementTree.Element) -> str:
+        kind = cell.attrib.get("t")
+        if kind == "inlineStr":
+            return "".join(
+                node.text or "" for node in cell.iter(f"{{{spreadsheet_ns}}}t")
+            )
+        value = cell.find(f"{{{spreadsheet_ns}}}v")
+        raw = "" if value is None else value.text or ""
+        return shared_strings[int(raw)] if kind == "s" and raw else raw
+
+    rows: list[dict[str, str]] = []
+    headers: dict[str, str] = {}
+    for row_index, row in enumerate(sheet.findall(f".//{{{spreadsheet_ns}}}row")):
+        values = {
+            "".join(character for character in cell.attrib["r"] if character.isalpha()): cell_value(cell)
+            for cell in row.findall(f"{{{spreadsheet_ns}}}c")
+        }
+        if row_index == 0:
+            headers = {column: value.strip() for column, value in values.items()}
+            continue
+        rows.append({headers[column]: value.strip() for column, value in values.items() if column in headers})
+    patient_ids = {row.get("Patient_short_id", "") for row in rows}
+    patient_ids.discard("")
+    if not patient_ids:
+        raise ValueError(f"Excel中没有Patient_short_id：{path}")
+    return patient_ids
+
+
+def assignment_matches(filename: str, patient_ids: set[str]) -> list[str]:
+    return sorted(patient_id for patient_id in patient_ids if patient_id in filename)
 
 
 def verify_image(
@@ -203,6 +269,7 @@ def plan_task(
     accepted_six_anomalies: set[str],
     validated_images: set[Path],
     six_lr_policy: str,
+    assignment_patient_ids: set[str] | None,
 ) -> list[dict[str, Any]]:
     known_hashes = existing_hashes(target, hash_file)
     planned_hashes: set[str] = set()
@@ -218,6 +285,15 @@ def plan_task(
             "duplicate_representative": row["组内代表样本"],
         }
         try:
+            if assignment_patient_ids is not None:
+                matches = assignment_matches(image.name, assignment_patient_ids)
+                if not matches:
+                    record.update(status="skipped", reason="不在assignment_all正式人工标注白名单")
+                    actions.append(record)
+                    continue
+                if len(matches) > 1:
+                    raise ValueError(f"文件名匹配多个Patient_short_id：{matches}")
+                record["assignment_patient_id"] = matches[0]
             if not image.is_file() or not annotation.is_file():
                 raise FileNotFoundError("源图像或JSON不存在")
             data = read_annotation(annotation)
@@ -343,6 +419,7 @@ def build(
     apply: bool = False,
     six_lr_policy: str = "block",
     tasks: tuple[str, ...] = ("six_point", "spine_pose"),
+    assignment_xlsx: Path | None = None,
 ) -> dict[str, Any]:
     requested_apply = apply
     paths = [export_dir, manifest_dir, pose_target, corner_target]
@@ -362,6 +439,12 @@ def build(
         raise ValueError("tasks必须从six_point和spine_pose中选择")
     output_dir.mkdir(parents=True, exist_ok=True)
     hash_cache = HashCache(output_dir / "sha256_cache.json")
+    assignment_patient_ids: set[str] | None = None
+    if assignment_xlsx is not None:
+        assignment_xlsx = assignment_xlsx.expanduser().resolve()
+        if not assignment_xlsx.is_file():
+            raise FileNotFoundError(f"正式分配表不存在：{assignment_xlsx}")
+        assignment_patient_ids = read_assignment_patient_ids(assignment_xlsx)
     summary_path = manifest_dir / "清单汇总.json"
     accepted_six_anomalies: set[str] = set()
     if summary_path.is_file():
@@ -389,6 +472,7 @@ def build(
             accepted_six_anomalies=accepted_six_anomalies,
             validated_images=validated_images,
             six_lr_policy=six_lr_policy,
+            assignment_patient_ids=assignment_patient_ids,
         )
         hash_cache.flush()
     lr_counts = Counter(
@@ -429,6 +513,8 @@ def build(
         "mode": "apply" if apply else "dry_run",
         "export_dir": str(export_dir),
         "manifest_dir": str(manifest_dir),
+        "assignment_xlsx": str(assignment_xlsx) if assignment_xlsx else None,
+        "assignment_patient_ids": len(assignment_patient_ids or ()),
         "prefix": prefix,
         "tasks": list(selected_tasks),
         "six_lr_policy": six_lr_policy,
@@ -451,6 +537,7 @@ def build(
 ## 构建规则
 
 - 数据源：`{export_dir}`
+- 正式人工标注白名单：`{assignment_xlsx or '未提供'}`；患者ID数：{len(assignment_patient_ids or ())}。
 - 仅读取任务清单中判定为“可训练”的样本。
 - 六点与椎体任务独立选择，因此新增数量允许不同。
 - 重复组只采用清单已选出的任务代表样本；未裁决的冲突组不导入。
@@ -484,6 +571,7 @@ def main(argv: list[str] | None = None) -> int:
         apply=args.apply,
         six_lr_policy=args.six_lr_policy,
         tasks=tuple(args.tasks),
+        assignment_xlsx=args.assignment_xlsx,
     )
     print(json.dumps(result["summary"], ensure_ascii=False, indent=2))
     has_errors = any("error" in summary["statuses"] for summary in result["summary"].values())

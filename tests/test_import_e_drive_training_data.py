@@ -6,6 +6,7 @@ import json
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 
 from PIL import Image
@@ -57,6 +58,24 @@ def make_mixed_lr(data: dict) -> dict:
     return data
 
 
+def write_assignment_xlsx(path: Path, patient_id: str = "SCO0001P0001") -> None:
+    files = {
+        "[Content_Types].xml": """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>""",
+        "_rels/.rels": """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>""",
+        "xl/workbook.xml": """<?xml version="1.0" encoding="UTF-8"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>""",
+        "xl/_rels/workbook.xml.rels": """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>""",
+        "xl/worksheets/sheet1.xml": f"""<?xml version="1.0" encoding="UTF-8"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>name_jpg</t></is></c><c r="B1" t="inlineStr"><is><t>Patient_short_id</t></is></c></row><row r="2"><c r="A2" t="inlineStr"><is><t>case</t></is></c><c r="B2" t="inlineStr"><is><t>{patient_id}</t></is></c></row></sheetData></worksheet>""",
+    }
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, content in files.items():
+            archive.writestr(name, content)
+
+
 class ImportTrainingDataTests(unittest.TestCase):
     def test_converts_expected_keypoint_orders(self) -> None:
         data = annotation()
@@ -67,6 +86,17 @@ class ImportTrainingDataTests(unittest.TestCase):
         self.assertEqual(points[0:3], ["0.40000000", "0.03000000", "2"])
         self.assertEqual(points[6:9], ["0.60000000", "0.05000000", "2"])
         self.assertEqual(points[9:12], ["0.40000000", "0.05000000", "2"])
+
+    def test_reads_assignment_xlsx_and_matches_filename(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "assignment_all.xlsx"
+            write_assignment_xlsx(path)
+            patient_ids = builder.read_assignment_patient_ids(path)
+            self.assertEqual(patient_ids, {"SCO0001P0001"})
+            self.assertEqual(
+                builder.assignment_matches("1_SCO0001P0001_20200101.png", patient_ids),
+                ["SCO0001P0001"],
+            )
 
     def test_mirror_policy_transforms_image_and_preserves_keypoint_identity(self) -> None:
         values = builder.six_point_yolo(annotation(), lr_policy="mirror_image").split()
