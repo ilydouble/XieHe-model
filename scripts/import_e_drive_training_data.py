@@ -53,9 +53,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--six-lr-policy",
-        choices=("block", "swap_pairs", "mirror_image"),
+        choices=("block", "preserve", "swap_pairs", "mirror_image"),
         default="block",
-        help="六点左右约定冲突策略；默认block，另可交换三对标签或镜像图像并同步坐标",
+        help="六点左右约定策略；preserve原样导入已统一标签，另可阻断、交换标签或镜像图像",
     )
     parser.add_argument("--apply", action="store_true", help="实际复制；默认仅预演")
     return parser.parse_args(argv)
@@ -334,6 +334,15 @@ def plan_task(
                     status="skipped",
                     reason="六点左右关系不是可按整批策略自动统一的完全相反模式",
                 )
+            elif (
+                task == "six_point"
+                and six_lr_policy == "preserve"
+                and record["six_lr_pattern"] != "matches_target_CL_IL_SL_on_image_left"
+            ):
+                record.update(
+                    status="skipped",
+                    reason="六点左右关系不符合已统一规范，未原样导入",
+                )
             elif image_hash in known_hashes:
                 record.update(status="skipped", reason="与目标数据集现有图像内容重复")
             elif image_hash in planned_hashes:
@@ -432,8 +441,8 @@ def build(
     output_dir = output_dir.expanduser().resolve()
     if not prefix or "/" in prefix or "\\" in prefix:
         raise ValueError("prefix不能为空且不能包含路径分隔符")
-    if six_lr_policy not in {"block", "swap_pairs", "mirror_image"}:
-        raise ValueError("six_lr_policy必须为block、swap_pairs或mirror_image")
+    if six_lr_policy not in {"block", "preserve", "swap_pairs", "mirror_image"}:
+        raise ValueError("six_lr_policy必须为block、preserve、swap_pairs或mirror_image")
     selected_tasks = tuple(dict.fromkeys(tasks))
     if not selected_tasks or not set(selected_tasks).issubset({"six_point", "spine_pose"}):
         raise ValueError("tasks必须从six_point和spine_pose中选择")

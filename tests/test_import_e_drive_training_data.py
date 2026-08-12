@@ -130,6 +130,25 @@ class ImportTrainingDataTests(unittest.TestCase):
             )
             self.assertEqual(result["summary"]["six_point"]["statuses"], {"skipped": 1})
 
+    def test_preserve_policy_imports_normalized_labels_without_swapping(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); export = root / "export"; export.mkdir()
+            Image.new("L", (100, 200), 128).save(export / "1_case.png")
+            (export / "1_case_label.json").write_text(json.dumps(annotation()), encoding="utf-8")
+            manifests = root / "manifests"; write_manifests(manifests)
+            pose = root / "pose"; corner = root / "corner"
+            for target in (pose, corner):
+                for split in ("train", "val", "test"):
+                    (target / "images" / split).mkdir(parents=True)
+                    (target / "labels" / split).mkdir(parents=True)
+            result = builder.build(
+                export, manifests, pose, corner, root / "output",
+                tasks=("six_point",), six_lr_policy="preserve", apply=True,
+            )
+            self.assertEqual(result["summary"]["six_point"]["statuses"], {"imported": 1})
+            values = (pose / "labels" / "train" / "eap_1_case.txt").read_text().split()
+            self.assertEqual(values[5:11], ["0.80000000", "0.20000000", "2", "0.20000000", "0.20000000", "2"])
+
     def test_dry_run_and_apply_are_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); export = root / "export"; export.mkdir()
