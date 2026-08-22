@@ -432,3 +432,6 @@
 - 本地`8-test_model/compare_pose_vs_detect.py`当前包含按灰度均值裁黑边的旧实验代码且已有用户未提交修改，本轮不编辑它，避免覆盖用户工作，也避免继续依赖不可靠的纯黑边规则。
 - 可复用的175张真值评估已有`scripts/build_six_point_model_review.py`，当前预测器选择最高置信Pose框并读取`keypoints.xyn/conf`；本轮将把两阶段核心做成独立模块，并提供新的本地CLI输出单次/两次对照和可选标签指标。
 - 当前可用于功能冒烟的最新本地权重是`6-train_ap_model/runs/pose/best_performance-3/weights/best.pt`，修改时间2026-08-13，训练imgsz=800。它不是新ROI混合模型，因此只用于验证推理链路和坐标回写，不用其效果决定新方案优劣。
+- 已实现`scripts/two_stage_pose_inference.py`：统一像素坐标输出，首轮最高置信框扩展20%，ROI过小/近全图/低置信/二次漏检均返回首轮结果并给出明确fallback；二次bbox与六点统一平移回原图，再提供归一化坐标。
+- 已新增`8-test_model/run_two_stage_pose.py`本地CLI：单次模型调用链即可输出首轮/最终对照JPG、`results.json`、`summary.csv`；提供标签目录时额外计算整体误差、肩点和下四点有符号纵向偏差，便于复现此前175张指标。
+- 核心4项测试覆盖ROI边界、二阶段图像尺寸、bbox/六点回写、低置信和二次漏检fallback；CLI 2项测试覆盖有符号dy和完整文件输出。共6项测试、语法和diff检查通过。
