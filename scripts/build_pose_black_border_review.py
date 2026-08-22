@@ -203,15 +203,15 @@ def render_preview(
     canvas.paste(image, (x0, header_h))
     title_font, body_font = choose_font(27), choose_font(20)
     cd = ImageDraw.Draw(canvas)
-    warning = "关键点裁剪风险: " + ", ".join(sample["risky_keypoints"]) if sample["risky_keypoints"] else "关键点未落入统计暗边"
-    reason_cn = "连续暗边面积≥5%" if sample["reason"] == "continuous_ge_5pct" else "横向黑画布（连续边算法漏检）"
+    warning = "CROP RISK - labeled keypoints in border: " + ", ".join(sample["risky_keypoints"]) if sample["risky_keypoints"] else "No labeled keypoints inside measured border"
+    reason_text = "continuous dark border >=5%" if sample["reason"] == "continuous_ge_5pct" else "wide black canvas (interrupted-edge case)"
     cd.text((20, 14), f'{sample["index"]:04d}  {sample["filename"]}', font=title_font, fill=(255, 255, 255))
-    cd.text((20, 55), f'{sample["split"]} / {sample["source"]}  |  {reason_cn}', font=body_font, fill=(255, 190, 65))
+    cd.text((20, 55), f'{sample["split"]} / {sample["source"]}  |  {reason_text}', font=body_font, fill=(255, 190, 65))
     cd.text((20, 88), warning, font=body_font, fill=(255, 82, 82) if sample["risky_keypoints"] else (110, 235, 150))
-    cd.text((20, 119), "红色=连续暗边统计区域；绿色框=拟保留区；青色=六个标注点（仅供核对，不代表可安全裁剪）", font=body_font, fill=(215, 220, 228))
+    cd.text((20, 119), "Red=measured border; green=proposed retained area; cyan=labels. Review aid only, not proof of a safe crop.", font=body_font, fill=(215, 220, 228))
     line1 = (
         f'{metrics.width}×{metrics.height}  W/H={metrics.aspect_wh:.3f}  '
-        f'连续暗边面积={metrics.border_area_fraction:.2%}  全图暗像素={metrics.dark_pixel_fraction:.2%}'
+        f'border area={metrics.border_area_fraction:.2%}  dark pixels={metrics.dark_pixel_fraction:.2%}'
     )
     line2 = (
         f'L/R/T/B={metrics.left}/{metrics.right}/{metrics.top}/{metrics.bottom}px  '
@@ -220,7 +220,7 @@ def render_preview(
     )
     cd.text((20, header_h + image.height + 25), line1, font=body_font, fill=(245, 245, 245))
     cd.text((20, header_h + image.height + 65), line2, font=body_font, fill=(245, 245, 245))
-    cd.text((20, header_h + image.height + 105), "注意：暗区均值阈值=12；文字、标尺或少量亮结构会打断连续边检测。", font=body_font, fill=(190, 198, 210))
+    cd.text((20, header_h + image.height + 105), "Threshold=12 (8-bit gray). Text, rulers, or bright anatomy can interrupt continuous-edge detection.", font=body_font, fill=(190, 198, 210))
     output_path.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(output_path, "JPEG", quality=88, optimize=True)
 
