@@ -456,3 +456,5 @@
 - 在正式目录上立即重复执行增量生成器，1999/1999条均识别为`skipped_existing`，无图像重写，证明逐样本签名、哈希和硬链接跳过路径可用。
 - Ultralytics 8.3.183的`YOLODataset.get_labels()`即使图像`cache=False`仍会在首次扫描时尝试写`labels/*.cache`；当前原始Corner与派生ROI目录均不存在cache文件。最终实载将临时替换数据集模块的cache保存函数，完成框架真实解析但不污染原始或派生数据目录。
 - 首次无缓存实载已由Ultralytics扫描3998/3998张，报告0背景、0损坏；随后因测试钩子未模拟原cache保存函数向内存字典补`version`而触发`KeyError`，属于验收钩子问题，不是数据错误。修正版只补内存version、不写磁盘。
+- 修正只读钩子后，Ultralytics 8.3.183实际加载混合YAML成功：train=3998图、71962个椎体实例、关键点形状统一(4,3)，背景0、损坏0；train根严格为1999原图+1999 Corner ROI，val/test仍为原始250/250。验收后原始与派生目录`.cache`文件均为0。
+- `datasets/DATASET_README.md`已补充Corner ROI分类、3.261GiB真实新增、增量生成命令、混合训练命令、硬链接上传边界和完整线上流程评估要求；本轮没有启动训练，也没有修改`xiehe-system`。

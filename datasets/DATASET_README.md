@@ -221,6 +221,7 @@ train/3557232367__CR_TSPINE_20210927_slice0000.png
 - 六点：`6-train_ap_model/pose_data.yaml`
 - 六点原图+ROI受控实验：`6-train_ap_model/pose_data_roi_mixed.yaml`
 - 角点：`6-train_ap_model/corner_data.yaml`
+- 角点原图+ROI受控实验：`6-train_ap_model/corner_data_roi_mixed.yaml`
 
 对应训练入口为 `6-train_ap_model/train_pose.py` 和 `6-train_ap_model/train_corner.py`。
 
@@ -233,7 +234,23 @@ cd 6-train_ap_model
 
 该快捷入口同时选择`roi_low`低增强预设，避免mosaic、mixup、copy-paste、强scale等增强干扰ROI实验归因。该数据用于训练同一个模型兼容原图第一次定位与ROI第二次精定位；最终效果必须在原始test图上通过完整线上流程评估，不能直接用GT裁剪后的test替代。
 
-`datasets/pose_data/dataset.yaml` 当前与六点任务一致，可以作为数据目录内的参考配置。需要特别注意：`datasets/pose_corner_data/dataset.yaml` 是历史遗留错误文件，仍错误指向 `../pose_data`，并写成 1 类、6 关键点；它没有被当前 `train_corner.py` 使用，不得拿它直接启动角点训练。角点训练应始终使用上面的权威 `corner_data.yaml`，直到该历史文件被另行同步修正。
+`corner_data_roi_mixed.yaml`的train同时引用原始1999张Corner train和`corner_roi_views`的1999张派生ROI视图，因此训练样本数为3998；val/test保持原始250/250。派生层中1212张安全图像以硬链接复用现有`pose_roi_views`像素，40张因原Pose框会切到Corner角点而扩框重裁，747张无现成Pose ROI而按真实ROI几何分布生成；真正新增像素文件787张，约占3.261GiB。全部ROI强制包含每图所有椎体bbox和可见角点。生成或增量更新命令：
+
+```bash
+cd /Users/liruirui/Documents/code/spine/Model
+/opt/miniconda3/envs/cv/bin/python scripts/build_corner_roi_views.py --apply
+```
+
+重复执行会根据源图、Corner标签、裁剪配置和复用图像哈希跳过未变化样本；当前二次验收为1999/1999全部跳过。训练命令：
+
+```bash
+cd 6-train_ap_model
+./train_corner.sh --roi-mixed --imgsz 800 --name corner_roi_mixed_v1
+```
+
+该快捷入口使用`roi_low`低增强预设。硬链接只在当前文件系统内节省数据块；若要上传训练服务器，应使用能保留硬链接的tar归档，或明确选择解引用并接受上传体积增加。Corner正式效果必须在原始test图上分别评估原图直推和“六点模型产生ROI→Corner→坐标回写”的完整流程，重点检查18节完整率、C7/L5贴边和编号整体错位。
+
+`datasets/pose_data/dataset.yaml` 当前与六点任务一致，可以作为数据目录内的参考配置。需要特别注意：`datasets/pose_corner_data/dataset.yaml` 是历史遗留错误文件，仍错误指向 `../pose_data`，并写成 1 类、6 关键点；它没有被当前 `train_corner.py` 使用，不得拿它直接启动角点训练。角点训练应使用上面的权威`corner_data.yaml`或受控实验`corner_data_roi_mixed.yaml`，直到该历史文件被另行同步修正。
 
 ## 8. 相关审计记录
 

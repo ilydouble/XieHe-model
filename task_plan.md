@@ -160,7 +160,7 @@
 - [complete] 145. 实现可重复运行的Corner ROI增量生成器和回归测试，支持硬链接复用与逐样本manifest跳过
 - [complete] 146. 修改Corner训练入口与YAML，支持原图+ROI混合数据和低增强预设，保持默认训练行为不变
 - [complete] 147. 正式生成Corner ROI派生层，仅写缺失或不安全裁剪，原始Corner与Pose ROI数据保持不变
-- [in_progress] 148. 全量验证1999份ROI标签、72角点包含、图像解码、硬链接、哈希、磁盘增量和Ultralytics实载后提交
+- [complete] 148. 全量验证1999份ROI标签、72角点包含、图像解码、硬链接、哈希、磁盘增量和Ultralytics实载后提交
 
 ## 遇到的错误
 
@@ -175,6 +175,7 @@
 | 新阶段首次提交无法创建 `.git/index.lock` | 1 | 工作区沙箱仅允许读取 `.git`；改用明确限定于本仓库的提升权限执行 scoped git add/commit |
 | 两阶段测试首次使用模块路径导入失败 | 1 | `tests/`不是Python包；改用`unittest discover -s tests -p ...`后7项测试全部通过 |
 | Corner混合集首次无缓存实载在扫描3998张后缺`version` | 1 | 禁写cache的替换函数遗漏原保存函数向内存字典补version的副作用；改为只补内存version但不落盘后重跑 |
+| 最终说明提交时普通`git add datasets/DATASET_README.md`被忽略规则拒绝 | 1 | 不修改用户现有`.gitignore`；只对这一个已跟踪说明文件使用精确`git add -f`，不暂存其他datasets内容 |
 | 默认 Python 无法导入 Pillow | 1 | 不安装依赖，改用已确认包含 Pillow 的 `/opt/miniconda3/envs/cv/bin/python` 生成可视化 |
 | `cv` Python 无法按 `tests.test_*` 模块名加载测试 | 1 | tests目录没有`__init__.py`；改为直接运行测试文件，1/1通过 |
 | 首次批量更新规划文件因空格差异未匹配 | 1 | 读取文件尾部确认原文后，以精确上下文重新应用补丁 |
