@@ -159,8 +159,8 @@
 - [complete] 144. 固化Corner ROI增量复用规则，按源图哈希、裁剪框和72角点包含关系划分复用/重裁/缺失
 - [complete] 145. 实现可重复运行的Corner ROI增量生成器和回归测试，支持硬链接复用与逐样本manifest跳过
 - [complete] 146. 修改Corner训练入口与YAML，支持原图+ROI混合数据和低增强预设，保持默认训练行为不变
-- [in_progress] 147. 正式生成Corner ROI派生层，仅写缺失或不安全裁剪，原始Corner与Pose ROI数据保持不变
-- [pending] 148. 全量验证1999份ROI标签、72角点包含、图像解码、硬链接、哈希、磁盘增量和Ultralytics实载后提交
+- [complete] 147. 正式生成Corner ROI派生层，仅写缺失或不安全裁剪，原始Corner与Pose ROI数据保持不变
+- [in_progress] 148. 全量验证1999份ROI标签、72角点包含、图像解码、硬链接、哈希、磁盘增量和Ultralytics实载后提交
 
 ## 遇到的错误
 
