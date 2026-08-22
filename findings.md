@@ -437,3 +437,10 @@
 - 核心4项测试覆盖ROI边界、二阶段图像尺寸、bbox/六点回写、低置信和二次漏检fallback；CLI 3项测试覆盖有符号dy、无有效点的安全聚合和完整文件输出。共7项测试、语法和diff检查通过。
 - 已用旧的`best_performance-3`权重在3张代表test图（旧图大上下边、eap常规边、eap大边）完成CPU真实冒烟：3/3均进入二阶段且完整检出6点，无fallback；并逐张查看左右对照图，黄色ROI、绿色bbox和六点均正确落回原图坐标，未见缩放或平移错误。
 - 该旧权重并未接受ROI混合训练，因此效果只作负向基线：3张首轮平均误差18.45 px，二阶段28.46 px；肩点dy由-10.04 px变为-20.88 px，下四点dy由-6.08 px变为+6.85 px。当前结果不能部署，也不能据此否定ROI混合方案；必须待新模型训练后在同一175张test上比较首轮与二阶段。
+
+## 2026-08-22：Corner ROI增量混合训练集（执行中）
+
+- 用户授权执行“复用已有Pose ROI、只生成缺失或不安全Corner ROI”的方案；不重新复制1999张原图，不修改`datasets/pose_corner_data`或`datasets/pose_roi_views`，也不启动训练或修改线上系统。
+- 当前Corner train严格为1999张；Pose ROI manifest有1404条。按同名初筛，1252条落在Corner train，其中1212条现有裁剪框包含全部Corner可见角点，40条会裁掉1个或多个角点；另747张Corner train没有现成Pose ROI。
+- 初筛数字尚需生成器以源图SHA-256和真实尺寸复核后才能成为正式复用数。正式设计为：安全同图使用硬链接复用ROI像素并重算Corner标签；40条不安全及无现成ROI样本才新裁图；所有裁剪必须包含18节bbox和72个可见角点。
+- Ultralytics会根据图像路径自动推导同根`labels/`，因此不能直接让Corner YAML引用`pose_roi_views/images/train`，否则会读到六点标签；必须建立独立`corner_roi_views/images/train`别名树和Corner标签树。硬链接在同一文件系统内不新增图像数据块，并保持标准YOLO目录兼容性。
