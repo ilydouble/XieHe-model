@@ -444,3 +444,4 @@
 - 当前Corner train严格为1999张；Pose ROI manifest有1404条。按同名初筛，1252条落在Corner train，其中1212条现有裁剪框包含全部Corner可见角点，40条会裁掉1个或多个角点；另747张Corner train没有现成Pose ROI。
 - 初筛数字尚需生成器以源图SHA-256和真实尺寸复核后才能成为正式复用数。正式设计为：安全同图使用硬链接复用ROI像素并重算Corner标签；40条不安全及无现成ROI样本才新裁图；所有裁剪必须包含18节bbox和72个可见角点。
 - Ultralytics会根据图像路径自动推导同根`labels/`，因此不能直接让Corner YAML引用`pose_roi_views/images/train`，否则会读到六点标签；必须建立独立`corner_roi_views/images/train`别名树和Corner标签树。硬链接在同一文件系统内不新增图像数据块，并保持标准YOLO目录兼容性。
+- 对1252条同名样本量化现有Pose ROI相对Corner全部角点包围范围：ROI宽度/原图中位73.2%、高度73.4%、面积53.2%；ROI宽度约为Corner包围宽度中位3.75倍，高度约1.28倍。无现成ROI样本将据此采用约水平1.4倍、垂直0.15倍的双侧边距并叠加确定性平移/尺度扰动，避免用Corner真值生成不符合线上分布的过紧“完美裁剪”。
