@@ -1,0 +1,18 @@
+# AP正面脊柱六关键点：原图 + ROI裁剪视图混合训练
+# train为1:1混合；val/test保持原始患者隔离分区，不使用GT裁剪。
+
+path: ../datasets
+train:
+  - pose_data/images/train
+  - pose_roi_views/images/train
+val: pose_data/images/val
+test: pose_data/images/test
+
+nc: 1
+names:
+  0: spine
+
+kpt_shape: [6, 3]
+flip_idx: [1, 0, 3, 2, 5, 4]
+
+# 0: CR, 1: CL, 2: IR, 3: IL, 4: SR, 5: SL

@@ -417,3 +417,5 @@
 - ROI几何固定为原bbox与可见六点的并集，按目标跨度扩展四周上下文并加入由文件名+种子决定的轻微平移/尺度扰动；生成后强制原bbox和所有可见点仍在裁剪框内。标签保持class、点顺序和visibility，仅换算bbox与坐标。
 - ROI目录只保存`roi_`前缀的train图像和标签；混合YAML以两个train目录实现严格1:1，避免硬链接共享inode带来的误写风险。生成器默认只预演，`--apply`时先写临时目录并在全部验收后原子改名，拒绝覆盖非空目标。
 - 已实现`scripts/build_pose_roi_views.py`及4项回归测试，覆盖确定性裁剪、原坐标往返、真实文件生成、已有目标拒绝；语法检查和测试通过。真实只读预演识别train 1404份、ROI 1404份、混合训练规模2808，ROI面积中位52.56%、P10/P90=33.75%/73.29%，仅1张裁剪框退化为接近全图。
+- 训练入口现支持`--data`和`--augmentation-profile`；默认仍为原始`pose_data.yaml + standard`，保持旧命令行为。新增`roi_low`关闭multi-scale、mosaic、mixup、copy-paste、erasing和auto-augment，并将scale/translate降至0.15/0.05。
+- 新增`pose_data_roi_mixed.yaml`，train明确为原图目录与ROI目录两个根，val/test仍为原始目录；Shell增加`--roi-mixed`快捷入口。Python配置4项测试、语法检查、Shell语法及两个帮助入口均通过。
