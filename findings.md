@@ -429,3 +429,6 @@
 
 - 用户调整实施顺序：先在本地inference实现并测试，确认后再迁移`xiehe-system`线上推理。本轮明确不修改线上目录。
 - 目标接口为“原图首轮Pose→选择最高置信框→按配置扩展ROI→同模型次轮Pose→关键点和bbox回写原图坐标”；任一安全门槛失败时返回首轮结果并记录fallback原因。
+- 本地`8-test_model/compare_pose_vs_detect.py`当前包含按灰度均值裁黑边的旧实验代码且已有用户未提交修改，本轮不编辑它，避免覆盖用户工作，也避免继续依赖不可靠的纯黑边规则。
+- 可复用的175张真值评估已有`scripts/build_six_point_model_review.py`，当前预测器选择最高置信Pose框并读取`keypoints.xyn/conf`；本轮将把两阶段核心做成独立模块，并提供新的本地CLI输出单次/两次对照和可选标签指标。
+- 当前可用于功能冒烟的最新本地权重是`6-train_ap_model/runs/pose/best_performance-3/weights/best.pt`，修改时间2026-08-13，训练imgsz=800。它不是新ROI混合模型，因此只用于验证推理链路和坐标回写，不用其效果决定新方案优劣。
