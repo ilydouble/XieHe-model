@@ -447,3 +447,5 @@
 - 对1252条同名样本量化现有Pose ROI相对Corner全部角点包围范围：ROI宽度/原图中位73.2%、高度73.4%、面积53.2%；ROI宽度约为Corner包围宽度中位3.75倍，高度约1.28倍。无现成ROI样本将据此采用约水平1.4倍、垂直0.15倍的双侧边距并叠加确定性平移/尺度扰动，避免用Corner真值生成不符合线上分布的过紧“完美裁剪”。
 - 已实现`scripts/build_corner_roi_views.py`：复用前核对源图尺寸和SHA-256、Pose ROI图像哈希及Corner全目标包含；不安全框扩展后重裁，缺失框按经验分布生成；输出Corner标签、逐样本签名和manifest。首次构建使用临时目录，后续执行逐样本验证签名/哈希并跳过未变化输出，拒绝静默保留陈旧文件。
 - 复用图像以硬链接写入独立Corner YOLO目录，不把六点标签误用给Corner；生成图采用临时文件验证后原子替换。5项回归测试覆盖坐标往返、安全硬链接、不安全扩框、缺失确定性生成和二次执行跳过，全部通过。
+- Corner训练入口现支持`--data`和`--augmentation-profile`，默认仍是`corner_data.yaml + standard`；新增`corner_data_roi_mixed.yaml`仅将train扩为原图与Corner ROI两个目录，val/test保持原始250/250。Shell的`--roi-mixed`快捷入口选择混合YAML、`roi_low`和默认实验名`corner_roi_mixed_v1`。
+- `roi_low`关闭multi-scale、mosaic、mixup、copy-paste、erasing和auto-augment，并降低scale/translate；3项Python配置测试、Python/Shell语法、两个帮助入口和diff检查均通过。

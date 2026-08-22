@@ -11,13 +11,14 @@ AP 正面脊柱椎体角点检测模型训练
 """
 
 import argparse
+import os
 import warnings
 from pathlib import Path
 
 warnings.filterwarnings('ignore')
 
 
-def parse_args():
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(description='Train AP Corner Detection Model')
     parser.add_argument('--model',   default='s',     choices=['n', 's', 'm', 'l', 'x'],
                         help='YOLO11 model size (default: s)')
@@ -33,9 +34,69 @@ def parse_args():
                         help='Experiment name (default: train)')
     parser.add_argument('--workers', type=int, default=8,
                         help='Dataloader workers (default: 8)')
+    parser.add_argument('--data', default='corner_data.yaml',
+                        help='Dataset YAML path or filename relative to this script')
+    parser.add_argument('--augmentation-profile', default='standard',
+                        choices=['standard', 'roi_low'],
+                        help='Augmentation preset: existing standard or controlled ROI experiment')
     parser.add_argument('--resume',  action='store_true',
                         help='Resume from last checkpoint')
-    return parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def resolve_data_yaml(value, script_dir):
+    requested = Path(value).expanduser()
+    candidates = [requested] if requested.is_absolute() else [script_dir / requested, requested]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate.resolve()
+    raise FileNotFoundError(f'数据集配置文件不存在: {value}')
+
+
+def augmentation_config(profile):
+    common = {
+        'rect': False,
+        'flipud': 0.0,
+        'fliplr': 0.5,
+        'dropout': 0.1,
+    }
+    if profile == 'standard':
+        return {
+            **common,
+            'multi_scale': True,
+            'degrees': 5.0,
+            'translate': 0.1,
+            'scale': 0.5,
+            'perspective': 0.0001,
+            'hsv_h': 0.01,
+            'hsv_s': 0.3,
+            'hsv_v': 0.2,
+            'mosaic': 1.0,
+            'close_mosaic': 30,
+            'mixup': 0.1,
+            'copy_paste': 0.1,
+            'erasing': 0.3,
+            'auto_augment': 'randaugment',
+        }
+    if profile == 'roi_low':
+        return {
+            **common,
+            'multi_scale': False,
+            'degrees': 3.0,
+            'translate': 0.05,
+            'scale': 0.15,
+            'perspective': 0.0,
+            'hsv_h': 0.0,
+            'hsv_s': 0.1,
+            'hsv_v': 0.15,
+            'mosaic': 0.0,
+            'close_mosaic': 0,
+            'mixup': 0.0,
+            'copy_paste': 0.0,
+            'erasing': 0.0,
+            'auto_augment': None,
+        }
+    raise ValueError(f'未知增强预设: {profile}')
 
 
 def main():
@@ -44,7 +105,7 @@ def main():
     from ultralytics import YOLO
 
     script_dir = Path(__file__).parent
-    data_yaml  = script_dir / 'corner_data.yaml'
+    data_yaml  = resolve_data_yaml(args.data, script_dir)
     weights_dir = script_dir.parent / 'weights'
     pretrained  = weights_dir / f'yolo11{args.model}-pose.pt'
 
@@ -59,11 +120,9 @@ def main():
     print(f'  设备    : {args.device}')
     print(f'  实验名称 : {args.name}')
     print(f'  数据集   : {data_yaml}')
+    print(f'  增强预设 : {args.augmentation_profile}')
     print('=' * 70)
     print()
-
-    if not data_yaml.exists():
-        raise FileNotFoundError(f'数据集配置文件不存在: {data_yaml}')
 
     # 加载模型
     if args.resume:
@@ -83,55 +142,38 @@ def main():
             print(f'⚠️  未找到本地权重，尝试从 ultralytics 下载')
             model = YOLO(f'yolo11{args.model}-pose.pt')
 
-    # 开始训练
-    results = model.train(
-        data=str(data_yaml),
-        epochs=args.epochs,
-        batch=args.batch,
-        imgsz=args.imgsz,
-        device=args.device,
-        workers=args.workers,
-        amp=False,        # 关闭 AMP 自动检查，避免因 yolo11n.pt 下载失败而崩溃
-        optimizer='SGD',
-        lr0=0.01,
-        lrf=0.01,
-        momentum=0.937,
-        weight_decay=0.001,   # 从 0.0005 加大，抑制过拟合
-        warmup_epochs=3.0,
-        # 尺寸泛化：开启 multi_scale，训练时随机缩放 0.5x~1.5x imgsz
-        # 注意：最大会到 1.5x imgsz，显存需求大，建议 imgsz<=800 或减小 batch
-        multi_scale=True,
-        rect=False,           # 正方形 padding，不用矩形 batch（默认 False）
-        # 数据增强 (正面脊柱不上下翻转)
-        flipud=0.0,
-        fliplr=0.5,
-        degrees=5.0,
-        translate=0.1,
-        scale=0.5,            # 从 0.3 加大，增强缩放鲁棒性
-        perspective=0.0001,   # 轻微透视变换，模拟拍摄角度差异
-        # 颜色/亮度增强（应对不同拍摄条件，X光片用保守值）
-        hsv_h=0.01,
-        hsv_s=0.3,
-        hsv_v=0.2,
-        # 混合/遮挡增强
-        mosaic=1.0,
-        close_mosaic=30,      # 从默认 10 延长，减少最后阶段的过拟合
-        mixup=0.1,            # 轻微 mixup 增强泛化
-        copy_paste=0.1,       # 拼贴增强，增加位置/尺度多样性
-        erasing=0.3,          # 随机擦除，防止过拟合
-        dropout=0.1,          # 启用 dropout 正则化
-        auto_augment='randaugment',  # 自动增强策略
-        # 损失权重
-        box=7.5,
-        cls=0.5,
-        pose=12.0,
-        kobj=1.0,
-        # 输出
-        project=str(script_dir / 'runs/corner'),
-        name=args.name,
-        plots=True,
-        verbose=True,
-    )
+    # YAML中的path相对训练脚本目录，保证从仓库根目录直接调用时也能正确解析。
+    previous_cwd = Path.cwd()
+    os.chdir(script_dir)
+    try:
+        results = model.train(
+            data=str(data_yaml),
+            epochs=args.epochs,
+            batch=args.batch,
+            imgsz=args.imgsz,
+            device=args.device,
+            workers=args.workers,
+            amp=False,
+            optimizer='SGD',
+            lr0=0.01,
+            lrf=0.01,
+            momentum=0.937,
+            weight_decay=0.001,
+            warmup_epochs=3.0,
+            **augmentation_config(args.augmentation_profile),
+            # 损失权重
+            box=7.5,
+            cls=0.5,
+            pose=12.0,
+            kobj=1.0,
+            # 输出
+            project=str(script_dir / 'runs/corner'),
+            name=args.name,
+            plots=True,
+            verbose=True,
+        )
+    finally:
+        os.chdir(previous_cwd)
 
     print()
     print('=' * 70)
