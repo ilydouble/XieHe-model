@@ -285,3 +285,9 @@
 - 正式执行完成：修改前标签树SHA-256为`1a39d541...e6ebb8f`，统一后为`75b6e465...39f645`；图像树SHA-256前后均为`7559f65d...dde73d`。
 - 独立逐文件复验2499份备份及活动标签哈希全部匹配manifest；非bbox字段变化0、未规范bbox行0，split仍为1999/250/250，类别计数保持V12为2498、其余各2499。重复预演显示changed_files=0、changed_rows=0，3项测试继续通过。
 - 已更新`datasets/DATASET_README.md`与训练权威配置注释，并新增`docs/corner_bbox_normalization_report_20260812.md`记录规则、修改范围、整体哈希、备份位置、验证结果和复现命令。
+
+## 2026-08-22：六点Pose数据集几何与黑边审计
+
+- 完成1755张原图及标签的只读全量扫描，输出逐图CSV/JSON与分组汇总到`/private/tmp/pose_geometry_audit_20260822.*`和`/private/tmp/pose_geometry_summary_20260822.json`。
+- 完成分辨率、通道、宽高比、`eap_`/旧来源、train/val/test、阈值5/12/20连续黑边及`imgsz=800`方形letterbox换算。
+- 视觉检查最大黑边train样本和test代表样本，确认统计识别的是原始X光画幅外的真实黑背景；活动数据、标签和训练配置均未修改。
