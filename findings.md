@@ -413,3 +413,6 @@
 - 用户已明确授权执行。现有`datasets/pose_data`保持只读；目标是为全部1404张train各生成一张基于六点标注几何、带确定性扰动和安全边距的ROI裁剪视图，同时保留原图，val/test保持原样。
 - 当前训练入口是Ultralytics 8.3.183的`YOLO.train()`，数据配置固定为`6-train_ap_model/pose_data.yaml`，尚不支持命令行选择数据集；当前增强`multi_scale=True、scale=0.5、mosaic=1、mixup/copy_paste/erasing/auto_augment`较强，不适合直接叠加后判断ROI视图的独立作用。
 - 计划采用派生数据集而非修改Ultralytics内部Dataset：生成器负责可追溯的图像/标签变换，训练脚本增加`--data`与`--augmentation-profile`，ROI实验使用低增强预设。
+- 原始六点数据约8.8GB，当前磁盘可用约332GiB；派生集中的原图、val和test将优先使用同文件系统硬链接，不重复占用内容空间，只有1404张ROI PNG和清单产生新增存储。
+- ROI几何固定为原bbox与可见六点的并集，按目标跨度扩展四周上下文并加入由文件名+种子决定的轻微平移/尺度扰动；生成后强制原bbox和所有可见点仍在裁剪框内。标签保持class、点顺序和visibility，仅换算bbox与坐标。
+- 混合数据目录使用同一train下原名图和`roi_`前缀图实现约1:1；val/test只硬链接原始样本。生成器默认只预演，`--apply`时先写临时目录并在全部验收后原子改名，拒绝覆盖非空目标。
