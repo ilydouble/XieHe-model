@@ -419,3 +419,6 @@
 - 已实现`scripts/build_pose_roi_views.py`及4项回归测试，覆盖确定性裁剪、原坐标往返、真实文件生成、已有目标拒绝；语法检查和测试通过。真实只读预演识别train 1404份、ROI 1404份、混合训练规模2808，ROI面积中位52.56%、P10/P90=33.75%/73.29%，仅1张裁剪框退化为接近全图。
 - 训练入口现支持`--data`和`--augmentation-profile`；默认仍为原始`pose_data.yaml + standard`，保持旧命令行为。新增`roi_low`关闭multi-scale、mosaic、mixup、copy-paste、erasing和auto-augment，并将scale/translate降至0.15/0.05。
 - 新增`pose_data_roi_mixed.yaml`，train明确为原图目录与ROI目录两个根，val/test仍为原始目录；Shell增加`--roi-mixed`快捷入口。Python配置4项测试、语法检查、Shell语法及两个帮助入口均通过。
+- 已正式原子生成`datasets/pose_roi_views`：1404张ROI PNG、1404份标签，来源为`eap_`878/旧526；目录不含val/test，混合训练规模严格为2808。ROI面积中位52.56%，生成产物约4.7GB。
+- 全量1404张ROI均可解码，图像/标签/源图SHA-256与manifest一致；标签反算回原图的bbox最大误差4.86e-9、关键点最大误差4.96e-9，visibility变化0，验收错误0。
+- 视觉抽查最大黑边`eap_507...`、原暗边规则会切肩点的`eap_1137...`和带标尺横向画布`eap_575...`：ROI均保留完整肩部至骨盆解剖区域，前两者未切掉关键结构，横向样本的大面积左右画布被去除。仅`eap_556...`因目标接近全幅而保留接近原图，这是安全退化而非错误。
