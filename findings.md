@@ -449,3 +449,5 @@
 - 复用图像以硬链接写入独立Corner YOLO目录，不把六点标签误用给Corner；生成图采用临时文件验证后原子替换。5项回归测试覆盖坐标往返、安全硬链接、不安全扩框、缺失确定性生成和二次执行跳过，全部通过。
 - Corner训练入口现支持`--data`和`--augmentation-profile`，默认仍是`corner_data.yaml + standard`；新增`corner_data_roi_mixed.yaml`仅将train扩为原图与Corner ROI两个目录，val/test保持原始250/250。Shell的`--roi-mixed`快捷入口选择混合YAML、`roi_low`和默认实验名`corner_roi_mixed_v1`。
 - `roi_low`关闭multi-scale、mosaic、mixup、copy-paste、erasing和auto-augment，并降低scale/translate；3项Python配置测试、Python/Shell语法、两个帮助入口和diff检查均通过。
+- 真实全量预演完成：1999张源图SHA-256与Pose manifest复核后仍严格为1212张安全硬链接复用、40张扩展不安全Pose框、747张无现成ROI新生成，源图哈希不匹配0；实际新写像素文件787张。混合train为3998，ROI面积P10/中位/P90=33.64%/53.26%/74.04%，仅1张接近全图。
+- 正式落盘前确认`corner_roi_views`及其临时目录均不存在；当前Corner原数据14GB、Pose ROI 4.7GB，磁盘可用326GiB，容量安全。
