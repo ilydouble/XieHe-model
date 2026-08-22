@@ -137,14 +137,16 @@ def aggregate(samples: list[dict], key: str) -> dict | None:
     metrics = [sample[key] for sample in samples if sample.get(key)]
     if not metrics:
         return None
+
+    def available_mean(field: str) -> float | None:
+        values = [metric[field] for metric in metrics if metric[field] is not None]
+        return None if not values else sum(values) / len(values)
+
     fields = ("mean_error_px", "mean_dy_px", "shoulder_mean_dy_px", "lower_mean_dy_px")
     return {
         "sample_count": len(metrics),
         "all_six_detected": sum(metric["detected"] == KEYPOINT_COUNT for metric in metrics),
-        **{
-            field: sum(metric[field] for metric in metrics if metric[field] is not None) / sum(metric[field] is not None for metric in metrics)
-            for field in fields
-        },
+        **{field: available_mean(field) for field in fields},
     }
 
 

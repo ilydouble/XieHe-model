@@ -53,6 +53,20 @@ class RunTwoStagePoseTest(unittest.TestCase):
         self.assertAlmostEqual(metrics["shoulder_mean_dy_px"], -5.0)
         self.assertAlmostEqual(metrics["lower_mean_dy_px"], -5.0)
 
+    def test_aggregate_handles_samples_without_detected_points(self):
+        empty_metrics = {
+            "detected": 0,
+            "mean_error_px": None,
+            "mean_dy_px": None,
+            "shoulder_mean_dy_px": None,
+            "lower_mean_dy_px": None,
+        }
+        summary = MODULE.aggregate([{"final_metrics": empty_metrics}], "final_metrics")
+        self.assertEqual(summary["sample_count"], 1)
+        self.assertEqual(summary["all_six_detected"], 0)
+        self.assertIsNone(summary["mean_error_px"])
+        self.assertIsNone(summary["shoulder_mean_dy_px"])
+
     def test_cli_writes_preview_json_and_csv(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
