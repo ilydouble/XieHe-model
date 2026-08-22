@@ -407,3 +407,9 @@
 - 已视觉抽查最大暗边`eap_507...`、肩点裁剪风险`eap_1137...`和横向黑画布`eap_575...`。红色暗区、绿色拟保留框、青色关键点、风险文字和英文指标均清晰；横向样本明确显示左右大面积黑画布，但连续暗边只有0.28%，验证补充规则必要。
 - 最终临时包和E盘包均为493个内容文件（488张预览+5个页面/清单文件）；488张JPG完整解码且SHA-256与manifest一致，CSV/JSON计数一致，源目标`diff -qr`无差异。E盘自动生成的493个AppleDouble旁车已仅在新包内清除，最终`._*`为0。
 - 交付目录为`/Volumes/E/spine_data/20260812-训练数据/六点Pose黑边可疑样本可视化_488份_20260822`。页面支持按文件名、split、来源、候选类型和关键点裁剪风险筛选，并按暗边面积或文件名排序。
+
+## 2026-08-22：六点Pose原图+ROI裁剪视图混合训练集（执行中）
+
+- 用户已明确授权执行。现有`datasets/pose_data`保持只读；目标是为全部1404张train各生成一张基于六点标注几何、带确定性扰动和安全边距的ROI裁剪视图，同时保留原图，val/test保持原样。
+- 当前训练入口是Ultralytics 8.3.183的`YOLO.train()`，数据配置固定为`6-train_ap_model/pose_data.yaml`，尚不支持命令行选择数据集；当前增强`multi_scale=True、scale=0.5、mosaic=1、mixup/copy_paste/erasing/auto_augment`较强，不适合直接叠加后判断ROI视图的独立作用。
+- 计划采用派生数据集而非修改Ultralytics内部Dataset：生成器负责可追溯的图像/标签变换，训练脚本增加`--data`与`--augmentation-profile`，ROI实验使用低增强预设。
