@@ -1,6 +1,6 @@
 # 脊柱 AP 正位训练数据集说明
 
-更新日期：2026-08-12
+更新日期：2026-08-22
 
 本文档描述 `datasets/` 下当前实际参与训练的两套活动数据：六点姿态数据集 `pose_data` 和椎体四角点数据集 `pose_corner_data`。文中的数量和质量统计均基于 2026-08-12 患者级重分后的活动文件重新计算，不沿用旧报告中的历史数量。
 
@@ -21,6 +21,10 @@ datasets/
 │   ├── images/{train,val,test}/
 │   ├── labels/{train,val,test}/
 │   └── dataset.yaml
+├── pose_roi_views/      # 六点train的1404份派生ROI裁剪视图，不含val/test
+│   ├── images/train/
+│   ├── labels/train/
+│   └── manifest.json
 └── pose_corner_data/
     ├── images/{train,val,test}/
     ├── labels/{train,val,test}/
@@ -215,9 +219,19 @@ train/3557232367__CR_TSPINE_20210927_slice0000.png
 实际训练脚本使用的权威配置是：
 
 - 六点：`6-train_ap_model/pose_data.yaml`
+- 六点原图+ROI受控实验：`6-train_ap_model/pose_data_roi_mixed.yaml`
 - 角点：`6-train_ap_model/corner_data.yaml`
 
 对应训练入口为 `6-train_ap_model/train_pose.py` 和 `6-train_ap_model/train_corner.py`。
+
+`pose_data_roi_mixed.yaml`的train同时引用原始1404张train和`pose_roi_views`的1404张派生ROI视图，因此训练样本数为2808；val/test仍只引用原始176/175张，患者分区没有改变。ROI视图由原bbox与六点并集扩展20%上下文，并加入确定性的5%平移和10%尺度扰动后生成；原始`pose_data`没有被覆盖。推荐命令：
+
+```bash
+cd 6-train_ap_model
+./train_pose.sh --roi-mixed --imgsz 800 --name roi_mixed_v1
+```
+
+该快捷入口同时选择`roi_low`低增强预设，避免mosaic、mixup、copy-paste、强scale等增强干扰ROI实验归因。该数据用于训练同一个模型兼容原图第一次定位与ROI第二次精定位；最终效果必须在原始test图上通过完整线上流程评估，不能直接用GT裁剪后的test替代。
 
 `datasets/pose_data/dataset.yaml` 当前与六点任务一致，可以作为数据目录内的参考配置。需要特别注意：`datasets/pose_corner_data/dataset.yaml` 是历史遗留错误文件，仍错误指向 `../pose_data`，并写成 1 类、6 关键点；它没有被当前 `train_corner.py` 使用，不得拿它直接启动角点训练。角点训练应始终使用上面的权威 `corner_data.yaml`，直到该历史文件被另行同步修正。
 
