@@ -504,3 +504,5 @@
 - 用户明确不希望重新生成ROI，授权把默认方案改为直接复用现有`datasets/pose_roi_views`；预测ROI生成器和YAML仅保留为以后可选对照，不再是默认训练前置条件。
 - 低成本默认边界：已有1404张ROI/标签原位引用，不复制、不硬链接、不重裁；从`best_performance-5/best.pt`全模型微调30轮，AdamW `lr0=0.0003`，每10轮保存，最终通过原始176张val完整双权重链路选择周期检查点。
 - 由于已有ROI来自GT安全范围而非首轮预测框，此方案成本最低但不能消除ROI分布差异；文档和输出必须保留该质量边界，不把raw val的单模型指标误称为最终两阶段模型选择指标。
+- 现有`pose_roi_views`已复核为1404图+1404标签、stem缺失/多余均为0；manifest确认一源图一ROI、margin=0.20、shift=0.05、scale=0.10、面积中位52.56%，可由YAML直接引用而不创建任何新图像文件。
+- 低成本YAML将以`path: ../datasets`引用`pose_roi_views/images/train`，并保留`pose_data/images/val`仅作训练过程健康监控；周期权重优劣必须另用完整两阶段raw val评测，不依赖该raw-val单模型指标自动选出的best。
