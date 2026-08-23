@@ -458,3 +458,10 @@
 - 首次无缓存实载已由Ultralytics扫描3998/3998张，报告0背景、0损坏；随后因测试钩子未模拟原cache保存函数向内存字典补`version`而触发`KeyError`，属于验收钩子问题，不是数据错误。修正版只补内存version、不写磁盘。
 - 修正只读钩子后，Ultralytics 8.3.183实际加载混合YAML成功：train=3998图、71962个椎体实例、关键点形状统一(4,3)，背景0、损坏0；train根严格为1999原图+1999 Corner ROI，val/test仍为原始250/250。验收后原始与派生目录`.cache`文件均为0。
 - `datasets/DATASET_README.md`已补充Corner ROI分类、3.261GiB真实新增、增量生成命令、混合训练命令、硬链接上传边界和完整线上流程评估要求；本轮没有启动训练，也没有修改`xiehe-system`。
+
+## 2026-08-23：新六点Pose两阶段175张评测（执行中）
+
+- 用户已训练完成正面六点Pose并要求按两次推理在独立test上评测，报告包含推理时间和全量可视化包，最终归档到E盘`spine_data`下；本轮只评测和归档，不修改线上系统。
+- 最新本地权重明确为`6-train_ap_model/runs/pose/best_performance-5/weights/best.pt`，修改时间2026-08-23 13:59:26、大小52,927,466字节；`args.yaml`确认使用`pose_data_roi_mixed.yaml`、imgsz=800、YOLO11l、低增强配置，正是本轮目标模型。
+- 正式评测继续使用患者隔离的原始`datasets/pose_data/images/test`与`labels/test`共175张，不使用GT裁剪test。现有E盘旧包`最新六点Pose模型人工核验包_175份`只含单阶段旧模型结果；新包使用独立名称，绝不覆盖旧包。
+- 当前本地两阶段CLI已有首轮/最终对照JPG、JSON、CSV和肩点/下四点有符号dy，但尚未记录分阶段耗时或生成离线筛选页面；本轮将在保持坐标链路不变的基础上补齐这些交付项。
