@@ -38,6 +38,19 @@ class FakeYOLO:
 
 
 class RunTwoStagePoseTest(unittest.TestCase):
+    def test_cli_accepts_dedicated_second_model(self):
+        argv = [
+            "run_two_stage_pose.py",
+            "--image", "sample.png",
+            "--model", "first.pt",
+            "--second-model", "second.pt",
+            "--output-dir", "out",
+        ]
+        with patch.object(sys, "argv", argv):
+            args = MODULE.parse_args()
+        self.assertEqual(args.model, Path("first.pt"))
+        self.assertEqual(args.second_model, Path("second.pt"))
+
     def test_metrics_preserve_signed_vertical_direction(self):
         prediction = MODULE.PosePrediction(
             100,

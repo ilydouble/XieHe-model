@@ -157,6 +157,7 @@ def parse_args() -> argparse.Namespace:
     source.add_argument("--image-dir", type=Path)
     parser.add_argument("--label-dir", type=Path, help="optional YOLO labels for quantitative comparison")
     parser.add_argument("--model", type=Path, required=True)
+    parser.add_argument("--second-model", type=Path, help="optional dedicated ROI refiner; default reuses --model")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--keyword", default="")
     parser.add_argument("--conf", type=float, default=0.25)
@@ -177,6 +178,7 @@ def main() -> None:
     from ultralytics import YOLO
 
     model = YOLO(str(args.model))
+    second_model = YOLO(str(args.second_model)) if args.second_model else None
     samples = []
     for index, image_path in enumerate(find_images(args.image, args.image_dir, args.keyword), 1):
         image = load_bgr(image_path)
@@ -188,6 +190,7 @@ def main() -> None:
             roi_margin=args.roi_margin,
             minimum_first_box_confidence=args.roi_conf,
             device=args.device,
+            second_model=second_model,
         )
         preview = preview_dir / f"{index:04d}_{image_path.stem}.jpg"
         cv2.imwrite(str(preview), make_comparison(image, result.first, result.final, result.roi_xyxy, result.used_second_stage, result.fallback_reason), [cv2.IMWRITE_JPEG_QUALITY, 90])
@@ -209,7 +212,13 @@ def main() -> None:
     for sample in samples:
         if sample["fallback_reason"]:
             summary["fallbacks"][sample["fallback_reason"]] = summary["fallbacks"].get(sample["fallback_reason"], 0) + 1
-    payload = {"model": str(args.model.resolve()), "configuration": vars(args), "summary": summary, "samples": samples}
+    payload = {
+        "model": str(args.model.resolve()),
+        "second_model": str(args.second_model.resolve()) if args.second_model else None,
+        "configuration": vars(args),
+        "summary": summary,
+        "samples": samples,
+    }
     payload["configuration"] = {key: str(value) if isinstance(value, Path) else value for key, value in payload["configuration"].items()}
     (args.output_dir / "results.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     with (args.output_dir / "summary.csv").open("w", encoding="utf-8-sig", newline="") as handle:

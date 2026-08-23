@@ -29,6 +29,10 @@ class TwoStagePoseReviewTest(unittest.TestCase):
         self.model.parent.mkdir(parents=True)
         self.model.write_bytes(b"fake-model")
         (self.model.parents[1] / "args.yaml").write_text("imgsz: 800\n", encoding="utf-8")
+        self.second_model = root / "stage2" / "weights" / "best.pt"
+        self.second_model.parent.mkdir(parents=True)
+        self.second_model.write_bytes(b"fake-second-model")
+        (self.second_model.parents[1] / "args.yaml").write_text("imgsz: 800\nlr0: 0.001\n", encoding="utf-8")
         Image.new("L", (200, 400), 80).save(self.images / "eap_sample.png")
         self.points = ((0.3, 0.2), (0.7, 0.2), (0.32, 0.65), (0.68, 0.65), (0.45, 0.75), (0.55, 0.75))
         encoded = " ".join(f"{x} {y} 2" for x, y in self.points)
@@ -89,6 +93,21 @@ class TwoStagePoseReviewTest(unittest.TestCase):
         self.assertIn("localStorage", html)
         parsed = json.loads((self.output / "manifest.json").read_text(encoding="utf-8"))
         self.assertIn(parsed["samples"][0]["preview"], parsed["package_files"])
+
+    def test_manifest_tracks_dedicated_second_model(self):
+        configuration = {"conf": 0.25, "imgsz": 800, "roi_margin": 0.2, "roi_conf": 0.25, "device": "cpu", "warmup": 0}
+        manifest = MODULE.build_package(
+            self.images,
+            self.labels,
+            self.model,
+            self.output,
+            lambda _path: self.result(),
+            configuration,
+            second_model_path=self.second_model,
+        )
+        self.assertEqual(manifest["first_stage_model_sha256"], MODULE.sha256_file(self.model))
+        self.assertEqual(manifest["second_stage_model_sha256"], MODULE.sha256_file(self.second_model))
+        self.assertNotEqual(manifest["first_stage_model_sha256"], manifest["second_stage_model_sha256"])
 
 
 if __name__ == "__main__":

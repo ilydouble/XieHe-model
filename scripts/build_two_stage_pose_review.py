@@ -487,6 +487,7 @@ def build_package(
     output_dir: Path,
     predictor: Callable[[Path], TwoStageResult],
     configuration: dict,
+    second_model_path: Path | None = None,
 ) -> dict:
     pairs = find_pairs(image_dir, label_dir)
     if output_dir.exists():
@@ -557,16 +558,24 @@ def build_package(
         )
         summary = aggregate_summary(samples, evaluation_wall_seconds)
         model_sha = sha256_file(model_path)
+        second_model_sha = sha256_file(second_model_path) if second_model_path else model_sha
         args_path = model_path.parents[1] / "args.yaml"
+        second_args_path = second_model_path.parents[1] / "args.yaml" if second_model_path else args_path
         package_id = hashlib.sha256(
-            (model_sha + "|" + "|".join(sample["image_sha256"] for sample in samples) + "|two-stage").encode()
+            (model_sha + "|" + second_model_sha + "|" + "|".join(sample["image_sha256"] for sample in samples) + "|two-stage").encode()
         ).hexdigest()[:16]
         manifest = {
             "package_id": package_id,
             "model": str(model_path.resolve()),
             "model_sha256": model_sha,
+            "first_stage_model": str(model_path.resolve()),
+            "first_stage_model_sha256": model_sha,
+            "second_stage_model": str(second_model_path.resolve()) if second_model_path else str(model_path.resolve()),
+            "second_stage_model_sha256": second_model_sha,
             "training_args": str(args_path.resolve()) if args_path.is_file() else None,
             "training_args_sha256": sha256_file(args_path) if args_path.is_file() else None,
+            "second_stage_training_args": str(second_args_path.resolve()) if second_args_path.is_file() else None,
+            "second_stage_training_args_sha256": sha256_file(second_args_path) if second_args_path.is_file() else None,
             "image_dir": str(image_dir.resolve()),
             "label_dir": str(label_dir.resolve()),
             "configuration": configuration,
@@ -609,10 +618,15 @@ def load_bgr(path: Path):
     return image
 
 
-def make_ultralytics_predictor(model_path: Path, configuration: dict) -> Callable[[Path], TwoStageResult]:
+def make_ultralytics_predictor(
+    model_path: Path,
+    configuration: dict,
+    second_model_path: Path | None = None,
+) -> Callable[[Path], TwoStageResult]:
     from ultralytics import YOLO
 
     model = YOLO(str(model_path))
+    second_model = YOLO(str(second_model_path)) if second_model_path else None
 
     def predict(image_path: Path) -> TwoStageResult:
         return two_stage_predict(
@@ -623,6 +637,7 @@ def make_ultralytics_predictor(model_path: Path, configuration: dict) -> Callabl
             roi_margin=configuration["roi_margin"],
             minimum_first_box_confidence=configuration["roi_conf"],
             device=configuration["device"],
+            second_model=second_model,
         )
 
     return predict
@@ -633,6 +648,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--image-dir", type=Path, required=True)
     parser.add_argument("--label-dir", type=Path, required=True)
     parser.add_argument("--model", type=Path, required=True)
+    parser.add_argument("--second-model", type=Path, help="optional dedicated ROI refiner; default reuses --model")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--conf", type=float, default=0.25)
     parser.add_argument("--imgsz", type=int, default=800)
@@ -652,9 +668,18 @@ def main() -> None:
         "roi_conf": args.roi_conf,
         "device": args.device,
         "warmup": args.warmup,
+        "second_model": str(args.second_model.resolve()) if args.second_model else None,
     }
-    predictor = make_ultralytics_predictor(args.model, configuration)
-    manifest = build_package(args.image_dir, args.label_dir, args.model, args.output_dir, predictor, configuration)
+    predictor = make_ultralytics_predictor(args.model, configuration, args.second_model)
+    manifest = build_package(
+        args.image_dir,
+        args.label_dir,
+        args.model,
+        args.output_dir,
+        predictor,
+        configuration,
+        second_model_path=args.second_model,
+    )
     print(json.dumps(manifest["summary"], ensure_ascii=False, indent=2))
 
 

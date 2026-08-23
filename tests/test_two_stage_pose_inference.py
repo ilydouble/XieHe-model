@@ -83,6 +83,22 @@ class TwoStagePoseInferenceTest(unittest.TestCase):
         self.assertEqual(result.fallback_reason, "second_detection_missing")
         self.assertEqual(result.final, result.first)
 
+    def test_dedicated_second_model_is_used_for_roi(self):
+        first_points = [(50 + i, 100 + i) for i in range(6)]
+        second_points = [(20 + i, 30 + i) for i in range(6)]
+        first_model = FakeModel([fake_result((40, 80, 160, 320), first_points)])
+        second_model = FakeModel([fake_result((10, 20, 130, 260), second_points)])
+        result = MODULE.two_stage_predict(
+            first_model,
+            np.zeros((400, 200, 3), dtype=np.uint8),
+            roi_margin=0.1,
+            second_model=second_model,
+        )
+        self.assertTrue(result.used_second_stage)
+        self.assertEqual(first_model.image_shapes, [(400, 200)])
+        self.assertEqual(second_model.image_shapes, [(288, 144)])
+        self.assertEqual(result.final.keypoints_xy[0], (48.0, 86.0))
+
 
 if __name__ == "__main__":
     unittest.main()

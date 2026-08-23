@@ -493,3 +493,5 @@
 - 已新增`pose_data_stage2_roi.yaml`、`train_pose_stage2.py`与Shell入口：默认从`best_performance-5/best.pt`初始化，在预测ROI-only train/val上以AdamW、lr0=0.001、100轮、imgsz=800、弱增强和全模型微调训练，输出到独立`runs/pose_stage2`；可显式冻结前N层或断点续训。
 - 微调脚本`--dry-run`不会导入Ultralytics或启动训练，已用当前真实best权重/YAML成功解析完整有效配置；4项配置测试、Python语法与Shell语法全部通过。普通`train_pose.py`默认行为未改变。
 - 双权重兼容将覆盖三层：核心`two_stage_predict(second_model=None)`默认仍复用首轮模型；本地CLI和175张评测器增加`--second-model`；评测manifest同时记录首轮与二阶段模型路径/SHA-256，避免专用精修结果无法追溯。
+- 双权重改造已完成：核心仅将ROI第二次调用切换到可选`second_model`，首轮/fallback/坐标回写保持不变；本地CLI和评测包入口均支持`--second-model`，未提供时继续复用首轮权重。
+- 评测manifest保留原`model/model_sha256`兼容字段，并新增首轮/二阶段模型与各自训练args的路径和SHA-256。核心5项、CLI 4项、评测包3项共12项测试及语法检查通过。

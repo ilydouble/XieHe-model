@@ -165,6 +165,7 @@ def two_stage_predict(
     minimum_roi_side: int = 64,
     maximum_roi_area_fraction: float = 0.98,
     device: str | None = None,
+    second_model: Any | None = None,
 ) -> TwoStageResult:
     total_start = time.perf_counter()
     height, width = image.shape[:2]
@@ -196,7 +197,8 @@ def two_stage_predict(
         return fallback("roi_near_full_frame", roi)
     crop = np.ascontiguousarray(image[top:bottom, left:right])
     second_start = time.perf_counter()
-    second = run_pose_model(model, crop, confidence, image_size, device)
+    refinement_model = model if second_model is None else second_model
+    second = run_pose_model(refinement_model, crop, confidence, image_size, device)
     second_ms = (time.perf_counter() - second_start) * 1000.0
     if second.box_xyxy is None or not second.has_keypoints:
         return TwoStageResult(
