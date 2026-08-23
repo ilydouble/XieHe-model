@@ -88,6 +88,8 @@ class BuildPoseStage2RoiTest(unittest.TestCase):
         records, skipped = MODULE.plan_split(self.dataset, "train", missing, 2, 1, 0.2, 0.06, 0.12, 0.25)
         self.assertEqual(records, [])
         self.assertEqual(skipped[0]["reason"], "prediction_missing")
+        with self.assertRaisesRegex(ValueError, "without any valid predicted ROI"):
+            MODULE.apply_dataset(records, skipped, self.dataset, self.output, self.model, {})
 
 
 if __name__ == "__main__":

@@ -226,6 +226,8 @@ def apply_dataset(
     stage1_model: Path,
     configuration: dict,
 ) -> dict:
+    if not records:
+        raise ValueError("cannot build a stage-two dataset without any valid predicted ROI")
     if output_root.exists():
         raise FileExistsError(f"output already exists: {output_root}")
     staging = output_root.with_name(output_root.name + ".building")

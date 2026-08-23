@@ -495,3 +495,6 @@
 - 双权重兼容将覆盖三层：核心`two_stage_predict(second_model=None)`默认仍复用首轮模型；本地CLI和175张评测器增加`--second-model`；评测manifest同时记录首轮与二阶段模型路径/SHA-256，避免专用精修结果无法追溯。
 - 双权重改造已完成：核心仅将ROI第二次调用切换到可选`second_model`，首轮/fallback/坐标回写保持不变；本地CLI和评测包入口均支持`--second-model`，未提供时继续复用首轮权重。
 - 评测manifest保留原`model/model_sha256`兼容字段，并新增首轮/二阶段模型与各自训练args的路径和SHA-256。核心5项、CLI 4项、评测包3项共12项测试及语法检查通过。
+- 已补充`docs/pose_stage2_finetuning.md`与统一数据说明，完整记录服务器上的预测ROI冒烟/正式生成、manifest门槛、dry-run、正式微调、原始val双权重选择及最终test评测命令；明确测试集不参与调参、输出目录不覆盖和显存不足只降batch。
+- 使用当前真实`best_performance-5`在本地CPU对train 2张、val 2张完成预测ROI smoke：4个源图生成6个计划ROI，跳过0、GT安全扩框0，未写派生数据。Python和Shell微调dry-run、四个入口help、19项相关回归测试及`git diff --check`全部通过。
+- 数据生成器额外拒绝“所有首轮预测均无有效ROI”时落盘，避免产生空训练集。阶段154–158完成；本轮没有生成全量约2984张派生ROI、没有启动训练，也没有修改`xiehe-system`。
