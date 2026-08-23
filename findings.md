@@ -485,3 +485,6 @@
 - 用户要求把“单独训练二阶段精修模型”落实为训练脚本。本轮目标不仅是加载best权重微调，还要保证训练ROI来自冻结首轮模型的预测框，并使后续本地推理能加载两个独立权重；不启动正式训练、不修改线上系统。
 - 当前`train_pose.py`只支持YOLO官方预训练权重或断点续训，不能指定已训练的`best_performance-5/best.pt`作为初始化权重；现有`pose_data_roi_mixed.yaml`为原图+GT安全ROI 1:1混合，不适合作为专用二阶段ROI-only微调数据。
 - 二阶段数据边界确定为：train原图经冻结首轮模型预测框生成确定性多ROI视图，val原图生成与线上margin一致的单ROI；test不写入派生训练集，最终仍通过完整原图两阶段链路评测，避免测试集参与调参。
+- 现有ROI生成器可直接复用六点标签解析、目标范围校验和标签坐标换算，但需新增“预测bbox为主、GT只作可表示性安全检查”的规划逻辑；train默认生成生产margin视图与一个确定性扰动视图，val只生成严格生产margin视图。
+- 现有`two_stage_predict`在第二次调用中硬编码复用同一`model`。为使专用精修权重可用，将增加可选`second_model`参数并默认回退到首轮模型；本地CLI/评测器增加可选`--second-model`，不破坏当前单权重命令。
+- 微调入口采用独立`train_pose_stage2.py`而不改变普通`train_pose.py`默认语义：必须显式指定或解析首轮best权重，使用ROI-only YAML、较低学习率和弱增强，并提供`--dry-run`在不导入Ultralytics/不启动训练时验证配置。
