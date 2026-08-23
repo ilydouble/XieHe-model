@@ -510,3 +510,9 @@
 - 新YAML只引用已有`pose_roi_views/images/train`与原始`pose_data/images/val`，不含test。5项训练配置测试、Python/Shell语法、真实权重dry-run与Shell help默认值检查通过，未创建数据或run目录。
 - 使用本机`cv`环境和Ultralytics实际解析YAML并禁用磁盘cache后，成功扫描1404张ROI train与176张原图val，关键点格式为`[6,3]`，背景/损坏均为0；扫描前后均无`.cache`文件。
 - 最终回归共20项：训练默认值5项、可选预测ROI生成3项、双权重核心5项、本地CLI 4项、评测包3项，全部通过。Python/Shell dry-run均显示30轮、lr0=0.0003、save_period=10、freeze=0；未生成`pose_stage2_roi`或`runs/pose_stage2`。
+
+## 2026-08-24：Corner新旧模型公平对比（执行中）
+
+- 新拷贝权重明确为`6-train_ap_model/runs/corner/best_performance-3/weights/best.pt`，本地修改时间2026-08-24 07:55:57、大小52,940,266字节；`args.yaml`确认使用`corner_data_roi_mixed.yaml`、imgsz=800、batch=4、SGD与`roi_low`弱增强，目标是原图+ROI混合Corner模型。
+- 对应训练计划200轮，但`results.csv`止于143轮，符合patience=100的提前停止。末轮val Pose mAP50-95约0.9426；该数值来自本次训练val，只能用于训练过程参考。
+- 同输入尺寸且最接近的旧基线为`runs/corner/best_performance7/weights/best.pt`，使用旧`corner_data.yaml`、imgsz=800、强增强，完整200轮；末轮val Pose mAP50-95约0.9770。两次训练的数据版本与val组成不同，日志指标不可直接横比，必须在当前同一原始test上重跑。
