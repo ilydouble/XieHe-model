@@ -4,6 +4,7 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
 
@@ -51,7 +52,8 @@ class TwoStagePoseInferenceTest(unittest.TestCase):
             ]
         )
         image = np.zeros((400, 200, 3), dtype=np.uint8)
-        result = MODULE.two_stage_predict(model, image, roi_margin=0.1)
+        with patch.object(MODULE.time, "perf_counter", side_effect=(0.0, 0.1, 0.3, 0.4, 0.7, 0.8)):
+            result = MODULE.two_stage_predict(model, image, roi_margin=0.1)
         self.assertTrue(result.used_second_stage)
         self.assertEqual(result.roi_xyxy, (28, 56, 172, 344))
         self.assertEqual(model.image_shapes, [(400, 200), (288, 144)])
@@ -59,6 +61,10 @@ class TwoStagePoseInferenceTest(unittest.TestCase):
         self.assertEqual(result.final.keypoints_xy[0], (48.0, 86.0))
         self.assertAlmostEqual(result.final.normalized_keypoints()[0][0], 0.24)
         self.assertAlmostEqual(result.final.normalized_keypoints()[0][1], 0.215)
+        self.assertAlmostEqual(result.first_inference_ms, 200.0)
+        self.assertAlmostEqual(result.second_inference_ms, 300.0)
+        self.assertAlmostEqual(result.total_inference_ms, 800.0)
+        self.assertEqual(MODULE.result_to_dict(result)["timing_ms"]["second_inference"], result.second_inference_ms)
 
     def test_low_confidence_falls_back_without_second_call(self):
         points = [(50 + i, 100 + i) for i in range(6)]

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+import time
 from dataclasses import asdict, dataclass
 from typing import Any, Sequence
 
@@ -40,6 +41,9 @@ class TwoStageResult:
     used_second_stage: bool
     fallback_reason: str | None
     roi_xyxy: tuple[int, int, int, int] | None
+    first_inference_ms: float
+    second_inference_ms: float | None
+    total_inference_ms: float
 
 
 def empty_prediction(width: int, height: int) -> PosePrediction:
@@ -162,24 +166,60 @@ def two_stage_predict(
     maximum_roi_area_fraction: float = 0.98,
     device: str | None = None,
 ) -> TwoStageResult:
+    total_start = time.perf_counter()
     height, width = image.shape[:2]
+    first_start = time.perf_counter()
     first = run_pose_model(model, image, confidence, image_size, device)
+    first_ms = (time.perf_counter() - first_start) * 1000.0
+
+    def fallback(reason: str, roi=None) -> TwoStageResult:
+        return TwoStageResult(
+            first,
+            first,
+            False,
+            reason,
+            roi,
+            first_ms,
+            None,
+            (time.perf_counter() - total_start) * 1000.0,
+        )
+
     if first.box_xyxy is None or not first.has_keypoints:
-        return TwoStageResult(first, first, False, "first_detection_missing", None)
+        return fallback("first_detection_missing")
     if first.box_confidence < minimum_first_box_confidence:
-        return TwoStageResult(first, first, False, "first_box_low_confidence", None)
+        return fallback("first_box_low_confidence")
     roi = expand_roi(first.box_xyxy, width, height, roi_margin, minimum_roi_side)
     if roi is None:
-        return TwoStageResult(first, first, False, "invalid_roi", None)
+        return fallback("invalid_roi")
     left, top, right, bottom = roi
     if ((right - left) * (bottom - top)) / (width * height) >= maximum_roi_area_fraction:
-        return TwoStageResult(first, first, False, "roi_near_full_frame", roi)
+        return fallback("roi_near_full_frame", roi)
     crop = np.ascontiguousarray(image[top:bottom, left:right])
+    second_start = time.perf_counter()
     second = run_pose_model(model, crop, confidence, image_size, device)
+    second_ms = (time.perf_counter() - second_start) * 1000.0
     if second.box_xyxy is None or not second.has_keypoints:
-        return TwoStageResult(first, first, False, "second_detection_missing", roi)
+        return TwoStageResult(
+            first,
+            first,
+            False,
+            "second_detection_missing",
+            roi,
+            first_ms,
+            second_ms,
+            (time.perf_counter() - total_start) * 1000.0,
+        )
     final = remap_prediction(second, roi, width, height)
-    return TwoStageResult(first, final, True, None, roi)
+    return TwoStageResult(
+        first,
+        final,
+        True,
+        None,
+        roi,
+        first_ms,
+        second_ms,
+        (time.perf_counter() - total_start) * 1000.0,
+    )
 
 
 def prediction_to_dict(prediction: PosePrediction) -> dict:
@@ -199,6 +239,11 @@ def result_to_dict(result: TwoStageResult) -> dict:
         "used_second_stage": result.used_second_stage,
         "fallback_reason": result.fallback_reason,
         "roi_xyxy": result.roi_xyxy,
+        "timing_ms": {
+            "first_inference": result.first_inference_ms,
+            "second_inference": result.second_inference_ms,
+            "total_inference": result.total_inference_ms,
+        },
         "first": prediction_to_dict(result.first),
         "final": prediction_to_dict(result.final),
     }
