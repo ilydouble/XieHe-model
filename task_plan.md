@@ -173,8 +173,8 @@
 - [complete] 158. 添加回归测试、dry-run和使用说明，验证完整命令链并提交；本轮不启动正式训练、不修改线上
 - [complete] 159. 核实现有1404张Pose ROI及标签可被二阶段直接引用，确定零新增图像训练边界
 - [complete] 160. 将二阶段微调默认切换为existing-ROI方案：30轮、lr0=0.0003、每10轮保存，预测ROI保留为可选
-- [in_progress] 161. 更新配置测试与操作说明，验证YAML实载、Python/Shell dry-run和周期检查点评测命令
-- [pending] 162. 全量回归、diff与工作区边界验收并提交；不生成新ROI、不启动训练、不修改线上
+- [complete] 161. 更新配置测试与操作说明，验证YAML实载、Python/Shell dry-run和周期检查点评测命令
+- [complete] 162. 全量回归、diff与工作区边界验收并提交；不生成新ROI、不启动训练、不修改线上
 
 ## 遇到的错误
 
@@ -197,6 +197,8 @@
 | 首次搜索训练说明时zsh对不存在的`6-train_ap_model/*.md`报`no matches found` | 1 | 已从实际存在的`datasets/DATASET_README.md`读取训练章节；后续不对可能为空的glob直接传参 |
 | 低成本Shell帮助中的默认值在中文括号前显示为乱码 | 1 | 将here-doc中的变量改为`${VAR}`显式边界，并增加真实help输出检查；训练参数本身未受影响 |
 | 单个`apply_patch`同时删除并重建同一路径被拒绝 | 1 | 改为对现有文档内容做原位整段替换，不使用同路径Delete/Add组合 |
+| `cv`与默认Python均未安装pytest，无法用pytest入口回归 | 2 | 测试文件均为标准`unittest`，改用`cv` Python逐文件直接执行，20项全部通过 |
+| 默认Python用unittest执行时缺少PyYAML | 1 | 不安装依赖，统一改用用户指定且依赖完整的`cv` Python执行全部测试 |
 | Corner混合集首次无缓存实载在扫描3998张后缺`version` | 1 | 禁写cache的替换函数遗漏原保存函数向内存字典补version的副作用；改为只补内存version但不落盘后重跑 |
 | 最终说明提交时普通`git add datasets/DATASET_README.md`被忽略规则拒绝 | 1 | 不修改用户现有`.gitignore`；只对这一个已跟踪说明文件使用精确`git add -f`，不暂存其他datasets内容 |
 | 默认 Python 无法导入 Pillow | 1 | 不安装依赖，改用已确认包含 Pillow 的 `/opt/miniconda3/envs/cv/bin/python` 生成可视化 |

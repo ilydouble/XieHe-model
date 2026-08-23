@@ -508,3 +508,5 @@
 - 低成本YAML将以`path: ../datasets`引用`pose_roi_views/images/train`，并保留`pose_data/images/val`仅作训练过程健康监控；周期权重优劣必须另用完整两阶段raw val评测，不依赖该raw-val单模型指标自动选出的best。
 - 默认训练入口现已切换为`pose_data_stage2_existing_roi.yaml`、30轮、AdamW lr0=0.0003、save_period=10、实验名`stage2_existing_roi_v1`；原预测ROI配置`pose_data_stage2_roi.yaml`保留且明确标为可选实验。
 - 新YAML只引用已有`pose_roi_views/images/train`与原始`pose_data/images/val`，不含test。5项训练配置测试、Python/Shell语法、真实权重dry-run与Shell help默认值检查通过，未创建数据或run目录。
+- 使用本机`cv`环境和Ultralytics实际解析YAML并禁用磁盘cache后，成功扫描1404张ROI train与176张原图val，关键点格式为`[6,3]`，背景/损坏均为0；扫描前后均无`.cache`文件。
+- 最终回归共20项：训练默认值5项、可选预测ROI生成3项、双权重核心5项、本地CLI 4项、评测包3项，全部通过。Python/Shell dry-run均显示30轮、lr0=0.0003、save_period=10、freeze=0；未生成`pose_stage2_roi`或`runs/pose_stage2`。
