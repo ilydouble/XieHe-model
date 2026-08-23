@@ -1,0 +1,16 @@
+# AP正面六点Pose二阶段专用ROI数据。
+# 由冻结的一阶段模型预测框生成；train为确定性多ROI，val为线上同margin单ROI。
+# 不包含原图混合，也不包含test。最终模型选择需运行原始val完整两阶段链路。
+
+path: ../datasets/pose_stage2_roi
+train: images/train
+val: images/val
+
+nc: 1
+names:
+  0: spine
+
+kpt_shape: [6, 3]
+flip_idx: [1, 0, 3, 2, 5, 4]
+
+# 0: CR, 1: CL, 2: IR, 3: IL, 4: SR, 5: SL
