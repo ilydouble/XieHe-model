@@ -220,13 +220,14 @@ train/3557232367__CR_TSPINE_20210927_slice0000.png
 
 - 六点：`6-train_ap_model/pose_data.yaml`
 - 六点原图+ROI受控实验：`6-train_ap_model/pose_data_roi_mixed.yaml`
-- 六点二阶段预测ROI专用微调：`6-train_ap_model/pose_data_stage2_roi.yaml`
+- 六点二阶段低成本专用微调：`6-train_ap_model/pose_data_stage2_existing_roi.yaml`
+- 六点二阶段预测ROI可选实验：`6-train_ap_model/pose_data_stage2_roi.yaml`
 - 角点：`6-train_ap_model/corner_data.yaml`
 - 角点原图+ROI受控实验：`6-train_ap_model/corner_data_roi_mixed.yaml`
 
 对应训练入口为 `6-train_ap_model/train_pose.py` 和 `6-train_ap_model/train_corner.py`。
 
-二阶段专用精修不继续使用上述原图+GT安全ROI混合集。先由冻结的一阶段`best_performance-5/best.pt`对原始train/val产生预测框ROI：train每张默认2个确定性视图，val每张1个与线上margin一致的视图，test不进入派生集。随后由`train_pose_stage2.py`从一阶段best权重以低学习率在ROI-only数据上微调独立权重。完整命令和验收门槛见`../docs/pose_stage2_finetuning.md`。
+二阶段低成本精修默认不生成新数据，直接引用已有`pose_roi_views`的1404张train ROI，从一阶段`best_performance-5/best.pt`初始化独立权重，以30轮、AdamW `lr0=0.0003`全模型微调，并每10轮保存检查点。YAML中的原始val只用于训练健康监控；候选权重必须在原始176张val上通过“一阶段原图→ROI→二阶段→坐标回写”完整链路比较后选择，不能只依赖自动`best.pt`。若低成本方案仍受GT安全ROI与预测ROI域差异影响，再显式使用`pose_data_stage2_roi.yaml`运行预测ROI对照实验。完整命令和验收门槛见`../docs/pose_stage2_finetuning.md`。
 
 `pose_data_roi_mixed.yaml`的train同时引用原始1404张train和`pose_roi_views`的1404张派生ROI视图，因此训练样本数为2808；val/test仍只引用原始176/175张，患者分区没有改变。ROI视图由原bbox与六点并集扩展20%上下文，并加入确定性的5%平移和10%尺度扰动后生成；原始`pose_data`没有被覆盖。推荐命令：
 

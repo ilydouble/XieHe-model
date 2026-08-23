@@ -196,6 +196,7 @@
 | 首次查看Pose训练测试时引用不存在的`tests/test_train_pose_config.py` | 1 | 根据`rg --files`结果改读实际的`tests/test_train_pose_roi_config.py`，未产生文件修改 |
 | 首次搜索训练说明时zsh对不存在的`6-train_ap_model/*.md`报`no matches found` | 1 | 已从实际存在的`datasets/DATASET_README.md`读取训练章节；后续不对可能为空的glob直接传参 |
 | 低成本Shell帮助中的默认值在中文括号前显示为乱码 | 1 | 将here-doc中的变量改为`${VAR}`显式边界，并增加真实help输出检查；训练参数本身未受影响 |
+| 单个`apply_patch`同时删除并重建同一路径被拒绝 | 1 | 改为对现有文档内容做原位整段替换，不使用同路径Delete/Add组合 |
 | Corner混合集首次无缓存实载在扫描3998张后缺`version` | 1 | 禁写cache的替换函数遗漏原保存函数向内存字典补version的副作用；改为只补内存version但不落盘后重跑 |
 | 最终说明提交时普通`git add datasets/DATASET_README.md`被忽略规则拒绝 | 1 | 不修改用户现有`.gitignore`；只对这一个已跟踪说明文件使用精确`git add -f`，不暂存其他datasets内容 |
 | 默认 Python 无法导入 Pillow | 1 | 不安装依赖，改用已确认包含 Pillow 的 `/opt/miniconda3/envs/cv/bin/python` 生成可视化 |
