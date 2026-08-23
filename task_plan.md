@@ -166,6 +166,11 @@
 - [complete] 151. 对175张原始test运行新模型两阶段推理，输出首轮/最终逐点指标、耗时和全量对照预览
 - [complete] 152. 按新旧来源、六点语义、误差改善/恶化、fallback和耗时分析，视觉抽查最好/中位/最差代表图
 - [complete] 153. 全量校验包文件、哈希和页面资源，归档到E盘spine_data并提交工具、报告和记录
+- [in_progress] 154. 固化二阶段专用微调边界：冻结首轮权重、预测ROI训练分布、独立val与不触碰test
+- [pending] 155. 实现首轮预测框驱动的二阶段ROI数据集生成器，支持确定性多视图、标签换算、manifest与预演
+- [pending] 156. 新增二阶段Pose微调入口、ROI-only YAML与低学习率配置，从best_performance-5初始化而非从零训练
+- [pending] 157. 让本地两阶段推理和评测支持首轮/二阶段两个独立权重，保持单权重兼容
+- [pending] 158. 添加回归测试、dry-run和使用说明，验证完整命令链并提交；本轮不启动正式训练、不修改线上
 
 ## 遇到的错误
 
@@ -184,6 +189,7 @@
 | 首次全包校验命令的单行f-string包含反斜杠 | 1 | 改用字符串拼接生成错误信息，避免Python语法限制 |
 | 第二次全包校验误用HTML控件ID与JS全局变量名 | 1 | 读取实际页面ID及`window.REVIEW_PACKAGE`后重跑，所有校验通过 |
 | E盘首次副本解码遇到macOS自动生成的`._*.jpg`旁车 | 1 | 仅删除新评测包内181个AppleDouble旁车后重验；181个内容文件逐哈希一致、175张预览全可解码 |
+| 首次查看Pose训练测试时引用不存在的`tests/test_train_pose_config.py` | 1 | 根据`rg --files`结果改读实际的`tests/test_train_pose_roi_config.py`，未产生文件修改 |
 | Corner混合集首次无缓存实载在扫描3998张后缺`version` | 1 | 禁写cache的替换函数遗漏原保存函数向内存字典补version的副作用；改为只补内存version但不落盘后重跑 |
 | 最终说明提交时普通`git add datasets/DATASET_README.md`被忽略规则拒绝 | 1 | 不修改用户现有`.gitignore`；只对这一个已跟踪说明文件使用精确`git add -f`，不暂存其他datasets内容 |
 | 默认 Python 无法导入 Pillow | 1 | 不安装依赖，改用已确认包含 Pillow 的 `/opt/miniconda3/envs/cv/bin/python` 生成可视化 |
