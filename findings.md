@@ -492,3 +492,4 @@
 - 派生集首次构建采用`.building`临时目录后原子改名，输出源图/标签/模型及派生文件SHA-256、预测框、裁剪框、置信度、是否为GT安全扩框和汇总；3项测试覆盖确定性/坐标往返、2:1 train/val落盘与无预测跳过，全部通过。
 - 已新增`pose_data_stage2_roi.yaml`、`train_pose_stage2.py`与Shell入口：默认从`best_performance-5/best.pt`初始化，在预测ROI-only train/val上以AdamW、lr0=0.001、100轮、imgsz=800、弱增强和全模型微调训练，输出到独立`runs/pose_stage2`；可显式冻结前N层或断点续训。
 - 微调脚本`--dry-run`不会导入Ultralytics或启动训练，已用当前真实best权重/YAML成功解析完整有效配置；4项配置测试、Python语法与Shell语法全部通过。普通`train_pose.py`默认行为未改变。
+- 双权重兼容将覆盖三层：核心`two_stage_predict(second_model=None)`默认仍复用首轮模型；本地CLI和175张评测器增加`--second-model`；评测manifest同时记录首轮与二阶段模型路径/SHA-256，避免专用精修结果无法追溯。
