@@ -190,6 +190,7 @@
 | 第二次全包校验误用HTML控件ID与JS全局变量名 | 1 | 读取实际页面ID及`window.REVIEW_PACKAGE`后重跑，所有校验通过 |
 | E盘首次副本解码遇到macOS自动生成的`._*.jpg`旁车 | 1 | 仅删除新评测包内181个AppleDouble旁车后重验；181个内容文件逐哈希一致、175张预览全可解码 |
 | 首次查看Pose训练测试时引用不存在的`tests/test_train_pose_config.py` | 1 | 根据`rg --files`结果改读实际的`tests/test_train_pose_roi_config.py`，未产生文件修改 |
+| 首次搜索训练说明时zsh对不存在的`6-train_ap_model/*.md`报`no matches found` | 1 | 已从实际存在的`datasets/DATASET_README.md`读取训练章节；后续不对可能为空的glob直接传参 |
 | Corner混合集首次无缓存实载在扫描3998张后缺`version` | 1 | 禁写cache的替换函数遗漏原保存函数向内存字典补version的副作用；改为只补内存version但不落盘后重跑 |
 | 最终说明提交时普通`git add datasets/DATASET_README.md`被忽略规则拒绝 | 1 | 不修改用户现有`.gitignore`；只对这一个已跟踪说明文件使用精确`git add -f`，不暂存其他datasets内容 |
 | 默认 Python 无法导入 Pillow | 1 | 不安装依赖，改用已确认包含 Pillow 的 `/opt/miniconda3/envs/cv/bin/python` 生成可视化 |

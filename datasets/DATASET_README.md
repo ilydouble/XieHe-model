@@ -220,10 +220,13 @@ train/3557232367__CR_TSPINE_20210927_slice0000.png
 
 - 六点：`6-train_ap_model/pose_data.yaml`
 - 六点原图+ROI受控实验：`6-train_ap_model/pose_data_roi_mixed.yaml`
+- 六点二阶段预测ROI专用微调：`6-train_ap_model/pose_data_stage2_roi.yaml`
 - 角点：`6-train_ap_model/corner_data.yaml`
 - 角点原图+ROI受控实验：`6-train_ap_model/corner_data_roi_mixed.yaml`
 
 对应训练入口为 `6-train_ap_model/train_pose.py` 和 `6-train_ap_model/train_corner.py`。
+
+二阶段专用精修不继续使用上述原图+GT安全ROI混合集。先由冻结的一阶段`best_performance-5/best.pt`对原始train/val产生预测框ROI：train每张默认2个确定性视图，val每张1个与线上margin一致的视图，test不进入派生集。随后由`train_pose_stage2.py`从一阶段best权重以低学习率在ROI-only数据上微调独立权重。完整命令和验收门槛见`../docs/pose_stage2_finetuning.md`。
 
 `pose_data_roi_mixed.yaml`的train同时引用原始1404张train和`pose_roi_views`的1404张派生ROI视图，因此训练样本数为2808；val/test仍只引用原始176/175张，患者分区没有改变。ROI视图由原bbox与六点并集扩展20%上下文，并加入确定性的5%平移和10%尺度扰动后生成；原始`pose_data`没有被覆盖。推荐命令：
 
