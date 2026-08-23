@@ -465,3 +465,5 @@
 - 最新本地权重明确为`6-train_ap_model/runs/pose/best_performance-5/weights/best.pt`，修改时间2026-08-23 13:59:26、大小52,927,466字节；`args.yaml`确认使用`pose_data_roi_mixed.yaml`、imgsz=800、YOLO11l、低增强配置，正是本轮目标模型。
 - 正式评测继续使用患者隔离的原始`datasets/pose_data/images/test`与`labels/test`共175张，不使用GT裁剪test。现有E盘旧包`最新六点Pose模型人工核验包_175份`只含单阶段旧模型结果；新包使用独立名称，绝不覆盖旧包。
 - 当前本地两阶段CLI已有首轮/最终对照JPG、JSON、CSV和肩点/下四点有符号dy，但尚未记录分阶段耗时或生成离线筛选页面；本轮将在保持坐标链路不变的基础上补齐这些交付项。
+- 现有`TwoStageResult`没有时间字段，适合在核心函数内以`perf_counter`分别包围首轮和次轮`model.predict`，并记录不含磁盘读取/绘图的模型链路总时间；正式批量计时前先以首张真实图预热一次，避免首次框架初始化污染统计。
+- 旧人工核验包的三栏布局、离线页面、CSV和manifest哈希结构可复用，但新包需改为“GT、首轮叠加、二阶段叠加”三栏，并加入首轮/最终误差、改善量、分阶段耗时、ROI/fallback以及来源筛选。为避免破坏旧单阶段生成器，将新增独立的两阶段核验包构建器。
