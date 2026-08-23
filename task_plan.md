@@ -171,6 +171,10 @@
 - [complete] 156. 新增二阶段Pose微调入口、ROI-only YAML与低学习率配置，从best_performance-5初始化而非从零训练
 - [complete] 157. 让本地两阶段推理和评测支持首轮/二阶段两个独立权重，保持单权重兼容
 - [complete] 158. 添加回归测试、dry-run和使用说明，验证完整命令链并提交；本轮不启动正式训练、不修改线上
+- [in_progress] 159. 核实现有1404张Pose ROI及标签可被二阶段直接引用，确定零新增图像训练边界
+- [pending] 160. 将二阶段微调默认切换为existing-ROI方案：30轮、lr0=0.0003、每10轮保存，预测ROI保留为可选
+- [pending] 161. 更新配置测试与操作说明，验证YAML实载、Python/Shell dry-run和周期检查点评测命令
+- [pending] 162. 全量回归、diff与工作区边界验收并提交；不生成新ROI、不启动训练、不修改线上
 
 ## 遇到的错误
 
