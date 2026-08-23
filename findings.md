@@ -488,3 +488,5 @@
 - 现有ROI生成器可直接复用六点标签解析、目标范围校验和标签坐标换算，但需新增“预测bbox为主、GT只作可表示性安全检查”的规划逻辑；train默认生成生产margin视图与一个确定性扰动视图，val只生成严格生产margin视图。
 - 现有`two_stage_predict`在第二次调用中硬编码复用同一`model`。为使专用精修权重可用，将增加可选`second_model`参数并默认回退到首轮模型；本地CLI/评测器增加可选`--second-model`，不破坏当前单权重命令。
 - 微调入口采用独立`train_pose_stage2.py`而不改变普通`train_pose.py`默认语义：必须显式指定或解析首轮best权重，使用ROI-only YAML、较低学习率和弱增强，并提供`--dry-run`在不导入Ultralytics/不启动训练时验证配置。
+- 已实现`scripts/build_pose_stage2_roi.py`：冻结首轮模型对train/val各源图只预测一次，train默认生成2个ROI、val生成1个无扰动线上同margin ROI；无检测/低置信源图明确跳过，预测ROI若不足以表示GT则只扩到安全范围并在manifest计数，不读取或生成test。
+- 派生集首次构建采用`.building`临时目录后原子改名，输出源图/标签/模型及派生文件SHA-256、预测框、裁剪框、置信度、是否为GT安全扩框和汇总；3项测试覆盖确定性/坐标往返、2:1 train/val落盘与无预测跳过，全部通过。

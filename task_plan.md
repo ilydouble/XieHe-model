@@ -167,8 +167,8 @@
 - [complete] 152. 按新旧来源、六点语义、误差改善/恶化、fallback和耗时分析，视觉抽查最好/中位/最差代表图
 - [complete] 153. 全量校验包文件、哈希和页面资源，归档到E盘spine_data并提交工具、报告和记录
 - [complete] 154. 固化二阶段专用微调边界：冻结首轮权重、预测ROI训练分布、独立val与不触碰test
-- [in_progress] 155. 实现首轮预测框驱动的二阶段ROI数据集生成器，支持确定性多视图、标签换算、manifest与预演
-- [pending] 156. 新增二阶段Pose微调入口、ROI-only YAML与低学习率配置，从best_performance-5初始化而非从零训练
+- [complete] 155. 实现首轮预测框驱动的二阶段ROI数据集生成器，支持确定性多视图、标签换算、manifest与预演
+- [in_progress] 156. 新增二阶段Pose微调入口、ROI-only YAML与低学习率配置，从best_performance-5初始化而非从零训练
 - [pending] 157. 让本地两阶段推理和评测支持首轮/二阶段两个独立权重，保持单权重兼容
 - [pending] 158. 添加回归测试、dry-run和使用说明，验证完整命令链并提交；本轮不启动正式训练、不修改线上
 
