@@ -165,7 +165,7 @@
 - [complete] 150. 扩展两阶段评测入口，记录首轮/次轮/总推理耗时并生成可筛选离线报告与回归测试
 - [complete] 151. 对175张原始test运行新模型两阶段推理，输出首轮/最终逐点指标、耗时和全量对照预览
 - [complete] 152. 按新旧来源、六点语义、误差改善/恶化、fallback和耗时分析，视觉抽查最好/中位/最差代表图
-- [in_progress] 153. 全量校验包文件、哈希和页面资源，归档到E盘spine_data并提交工具、报告和记录
+- [complete] 153. 全量校验包文件、哈希和页面资源，归档到E盘spine_data并提交工具、报告和记录
 
 ## 遇到的错误
 
@@ -183,6 +183,7 @@
 | 第二次提取代表图时误用`preview_path`字段 | 1 | 按表头改用实际的`preview`字段，成功得到最好/中位/最差及改善/恶化样本 |
 | 首次全包校验命令的单行f-string包含反斜杠 | 1 | 改用字符串拼接生成错误信息，避免Python语法限制 |
 | 第二次全包校验误用HTML控件ID与JS全局变量名 | 1 | 读取实际页面ID及`window.REVIEW_PACKAGE`后重跑，所有校验通过 |
+| E盘首次副本解码遇到macOS自动生成的`._*.jpg`旁车 | 1 | 仅删除新评测包内181个AppleDouble旁车后重验；181个内容文件逐哈希一致、175张预览全可解码 |
 | Corner混合集首次无缓存实载在扫描3998张后缺`version` | 1 | 禁写cache的替换函数遗漏原保存函数向内存字典补version的副作用；改为只补内存version但不落盘后重跑 |
 | 最终说明提交时普通`git add datasets/DATASET_README.md`被忽略规则拒绝 | 1 | 不修改用户现有`.gitignore`；只对这一个已跟踪说明文件使用精确`git add -f`，不暂存其他datasets内容 |
 | 默认 Python 无法导入 Pillow | 1 | 不安装依赖，改用已确认包含 Pillow 的 `/opt/miniconda3/envs/cv/bin/python` 生成可视化 |
