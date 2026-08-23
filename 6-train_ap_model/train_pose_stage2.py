@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fine-tune a dedicated six-keypoint Pose refiner on first-stage predicted ROIs."""
+"""Fine-tune a dedicated six-keypoint Pose refiner, reusing existing ROIs by default."""
 
 from __future__ import annotations
 
@@ -18,16 +18,17 @@ DEFAULT_WEIGHTS = SCRIPT_DIR / "runs/pose/best_performance-5/weights/best.pt"
 def parse_args(argv=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--weights", type=Path, default=DEFAULT_WEIGHTS, help="trained first-stage best.pt used to initialize refinement")
-    parser.add_argument("--data", default="pose_data_stage2_roi.yaml", help="ROI-only dataset YAML")
-    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--data", default="pose_data_stage2_existing_roi.yaml", help="ROI-only dataset YAML")
+    parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch", type=int, default=4)
     parser.add_argument("--imgsz", type=int, default=800)
     parser.add_argument("--device", default="0")
     parser.add_argument("--workers", type=int, default=8)
-    parser.add_argument("--name", default="stage2_refiner_v1")
-    parser.add_argument("--lr0", type=float, default=0.001, help="initial fine-tuning learning rate")
+    parser.add_argument("--name", default="stage2_existing_roi_v1")
+    parser.add_argument("--lr0", type=float, default=0.0003, help="initial fine-tuning learning rate")
     parser.add_argument("--freeze", type=int, default=0, help="freeze first N layers; 0 fine-tunes the full model")
     parser.add_argument("--patience", type=int, default=30)
+    parser.add_argument("--save-period", type=int, default=10, help="save periodic checkpoints for full-chain val selection")
     parser.add_argument("--resume", action="store_true", help="resume this stage-two run from last.pt")
     parser.add_argument("--dry-run", action="store_true", help="validate and print the effective configuration without training")
     return parser.parse_args(argv)
@@ -83,6 +84,7 @@ def build_train_config(args: argparse.Namespace, data_yaml: Path, project: Path)
         "warmup_epochs": 1.0,
         "cos_lr": True,
         "patience": args.patience,
+        "save_period": args.save_period,
         "seed": 0,
         "deterministic": True,
         "box": 7.5,
@@ -145,7 +147,8 @@ def main(argv=None) -> None:
         model.train(**train_config)
     finally:
         os.chdir(previous_cwd)
-    print(f"训练完成，最佳二阶段权重：{project / args.name / 'weights/best.pt'}")
+    print(f"训练完成，检查点目录：{project / args.name / 'weights'}")
+    print("请用原始val完整两阶段链路比较周期权重、best.pt和last.pt，不要只依赖raw-val自动best。")
 
 
 if __name__ == "__main__":

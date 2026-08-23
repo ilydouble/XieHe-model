@@ -172,8 +172,8 @@
 - [complete] 157. 让本地两阶段推理和评测支持首轮/二阶段两个独立权重，保持单权重兼容
 - [complete] 158. 添加回归测试、dry-run和使用说明，验证完整命令链并提交；本轮不启动正式训练、不修改线上
 - [complete] 159. 核实现有1404张Pose ROI及标签可被二阶段直接引用，确定零新增图像训练边界
-- [in_progress] 160. 将二阶段微调默认切换为existing-ROI方案：30轮、lr0=0.0003、每10轮保存，预测ROI保留为可选
-- [pending] 161. 更新配置测试与操作说明，验证YAML实载、Python/Shell dry-run和周期检查点评测命令
+- [complete] 160. 将二阶段微调默认切换为existing-ROI方案：30轮、lr0=0.0003、每10轮保存，预测ROI保留为可选
+- [in_progress] 161. 更新配置测试与操作说明，验证YAML实载、Python/Shell dry-run和周期检查点评测命令
 - [pending] 162. 全量回归、diff与工作区边界验收并提交；不生成新ROI、不启动训练、不修改线上
 
 ## 遇到的错误
@@ -195,6 +195,7 @@
 | E盘首次副本解码遇到macOS自动生成的`._*.jpg`旁车 | 1 | 仅删除新评测包内181个AppleDouble旁车后重验；181个内容文件逐哈希一致、175张预览全可解码 |
 | 首次查看Pose训练测试时引用不存在的`tests/test_train_pose_config.py` | 1 | 根据`rg --files`结果改读实际的`tests/test_train_pose_roi_config.py`，未产生文件修改 |
 | 首次搜索训练说明时zsh对不存在的`6-train_ap_model/*.md`报`no matches found` | 1 | 已从实际存在的`datasets/DATASET_README.md`读取训练章节；后续不对可能为空的glob直接传参 |
+| 低成本Shell帮助中的默认值在中文括号前显示为乱码 | 1 | 将here-doc中的变量改为`${VAR}`显式边界，并增加真实help输出检查；训练参数本身未受影响 |
 | Corner混合集首次无缓存实载在扫描3998张后缺`version` | 1 | 禁写cache的替换函数遗漏原保存函数向内存字典补version的副作用；改为只补内存version但不落盘后重跑 |
 | 最终说明提交时普通`git add datasets/DATASET_README.md`被忽略规则拒绝 | 1 | 不修改用户现有`.gitignore`；只对这一个已跟踪说明文件使用精确`git add -f`，不暂存其他datasets内容 |
 | 默认 Python 无法导入 Pillow | 1 | 不安装依赖，改用已确认包含 Pillow 的 `/opt/miniconda3/envs/cv/bin/python` 生成可视化 |

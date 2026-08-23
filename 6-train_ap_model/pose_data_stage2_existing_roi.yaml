@@ -1,0 +1,15 @@
+# AP正面六点Pose二阶段低成本微调：直接复用已有1404张ROI，不生成新图像。
+# train为GT安全ROI；raw val只作训练健康监控，最终权重必须用完整两阶段raw-val链路选择。
+
+path: ../datasets
+train: pose_roi_views/images/train
+val: pose_data/images/val
+
+nc: 1
+names:
+  0: spine
+
+kpt_shape: [6, 3]
+flip_idx: [1, 0, 3, 2, 5, 4]
+
+# 0: CR, 1: CL, 2: IR, 3: IL, 4: SR, 5: SL

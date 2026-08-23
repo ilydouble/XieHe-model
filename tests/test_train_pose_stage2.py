@@ -18,13 +18,16 @@ SPEC.loader.exec_module(MODULE)
 class TrainPoseStage2Test(unittest.TestCase):
     def test_defaults_are_low_lr_full_model_finetuning(self):
         args = MODULE.parse_args([])
-        self.assertEqual(args.data, "pose_data_stage2_roi.yaml")
-        self.assertEqual(args.lr0, 0.001)
+        self.assertEqual(args.data, "pose_data_stage2_existing_roi.yaml")
+        self.assertEqual(args.epochs, 30)
+        self.assertEqual(args.lr0, 0.0003)
         self.assertEqual(args.freeze, 0)
+        self.assertEqual(args.save_period, 10)
         with tempfile.TemporaryDirectory() as temporary:
             config = MODULE.build_train_config(args, Path(temporary) / "data.yaml", Path(temporary) / "runs")
         self.assertEqual(config["optimizer"], "AdamW")
-        self.assertEqual(config["lr0"], 0.001)
+        self.assertEqual(config["lr0"], 0.0003)
+        self.assertEqual(config["save_period"], 10)
         self.assertNotIn("freeze", config)
         self.assertEqual(config["mosaic"], 0.0)
         self.assertEqual(config["mixup"], 0.0)
@@ -35,13 +38,19 @@ class TrainPoseStage2Test(unittest.TestCase):
         config = MODULE.build_train_config(args, Path("data.yaml"), Path("runs"))
         self.assertEqual(config["freeze"], 10)
 
-    def test_stage2_yaml_is_roi_only_without_test(self):
+    def test_default_yaml_reuses_existing_roi_without_test(self):
+        config = yaml.safe_load((SCRIPT.parent / "pose_data_stage2_existing_roi.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(config["path"], "../datasets")
+        self.assertEqual(config["train"], "pose_roi_views/images/train")
+        self.assertEqual(config["val"], "pose_data/images/val")
+        self.assertNotIn("test", config)
+        self.assertEqual(config["kpt_shape"], [6, 3])
+
+    def test_predicted_roi_yaml_remains_optional(self):
         config = yaml.safe_load((SCRIPT.parent / "pose_data_stage2_roi.yaml").read_text(encoding="utf-8"))
         self.assertEqual(config["path"], "../datasets/pose_stage2_roi")
         self.assertEqual(config["train"], "images/train")
         self.assertEqual(config["val"], "images/val")
-        self.assertNotIn("test", config)
-        self.assertEqual(config["kpt_shape"], [6, 3])
 
     def test_dry_run_does_not_import_ultralytics_or_train(self):
         with tempfile.TemporaryDirectory() as temporary:

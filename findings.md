@@ -506,3 +506,5 @@
 - 由于已有ROI来自GT安全范围而非首轮预测框，此方案成本最低但不能消除ROI分布差异；文档和输出必须保留该质量边界，不把raw val的单模型指标误称为最终两阶段模型选择指标。
 - 现有`pose_roi_views`已复核为1404图+1404标签、stem缺失/多余均为0；manifest确认一源图一ROI、margin=0.20、shift=0.05、scale=0.10、面积中位52.56%，可由YAML直接引用而不创建任何新图像文件。
 - 低成本YAML将以`path: ../datasets`引用`pose_roi_views/images/train`，并保留`pose_data/images/val`仅作训练过程健康监控；周期权重优劣必须另用完整两阶段raw val评测，不依赖该raw-val单模型指标自动选出的best。
+- 默认训练入口现已切换为`pose_data_stage2_existing_roi.yaml`、30轮、AdamW lr0=0.0003、save_period=10、实验名`stage2_existing_roi_v1`；原预测ROI配置`pose_data_stage2_roi.yaml`保留且明确标为可选实验。
+- 新YAML只引用已有`pose_roi_views/images/train`与原始`pose_data/images/val`，不含test。5项训练配置测试、Python/Shell语法、真实权重dry-run与Shell help默认值检查通过，未创建数据或run目录。
