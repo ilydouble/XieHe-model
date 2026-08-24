@@ -15,6 +15,9 @@ from typing import Any
 
 SPLITS = ("train", "val", "test")
 BBOX_TOLERANCE = 2e-6
+BASE_CLASS_IDS = frozenset(range(18))
+OPTIONAL_CLASS_IDS = frozenset({18, 19})
+ALLOWED_CLASS_IDS = BASE_CLASS_IDS | OPTIONAL_CLASS_IDS
 
 
 def sha256_file(path: Path) -> str:
@@ -72,7 +75,7 @@ def normalize_label_text(path: Path) -> tuple[str, int, int]:
             values = [float(token) for token in tokens[1:]]
         except ValueError as error:
             raise ValueError(f"标签含非数值字段：{path}:{line_number}") from error
-        if not 0 <= class_id <= 17:
+        if class_id not in ALLOWED_CLASS_IDS:
             raise ValueError(f"类别越界：{path}:{line_number} class={class_id}")
         coordinate_indices = (0, 1, 2, 3, 4, 5, 7, 8, 10, 11, 13, 14)
         if any(not 0.0 <= values[index] <= 1.0 for index in coordinate_indices):
@@ -90,7 +93,7 @@ def normalize_label_text(path: Path) -> tuple[str, int, int]:
         raise ValueError(f"空标签：{path}")
     if len(classes) != len(set(classes)):
         raise ValueError(f"存在重复椎体类别：{path}")
-    missing = sorted(set(range(18)) - set(classes))
+    missing = sorted(BASE_CLASS_IDS - set(classes))
     if missing not in ([], [12]):
         raise ValueError(f"缺失类别超出已知例外：{path} missing={missing}")
     return "\n".join(output) + "\n", changed_rows, total_rows

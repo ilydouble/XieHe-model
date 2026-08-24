@@ -7,7 +7,7 @@ train:
 val: pose_corner_data/images/val
 test: pose_corner_data/images/test
 
-nc: 18
+nc: 20
 names:
   0: V0
   1: V1
@@ -27,6 +27,10 @@ names:
   15: V15
   16: V16
   17: V17
+  18: V18
+  19: V19
+
+# V18=L6；V19=T13。V19类别ID不代表其y顺序，推理/评测须保留模型类别。
 
 kpt_shape: [4, 3]
 flip_idx: [1, 0, 3, 2]

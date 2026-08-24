@@ -5,6 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import yaml
+
 
 SCRIPT = Path(__file__).resolve().parents[1] / "6-train_ap_model" / "train_corner.py"
 SPEC = importlib.util.spec_from_file_location("train_corner", SCRIPT)
@@ -36,6 +38,12 @@ class TrainCornerRoiConfigTest(unittest.TestCase):
             yaml_path = Path(temporary) / "data.yaml"
             yaml_path.write_text("path: .\n", encoding="utf-8")
             self.assertEqual(MODULE.resolve_data_yaml(str(yaml_path), SCRIPT.parent), yaml_path.resolve())
+
+    def test_corner_yamls_define_optional_l6_and_t13_classes(self):
+        for name in ("corner_data.yaml", "corner_data_roi_mixed.yaml"):
+            data = yaml.safe_load((SCRIPT.parent / name).read_text(encoding="utf-8"))
+            self.assertEqual(data["nc"], 20)
+            self.assertEqual(data["names"], {index: f"V{index}" for index in range(20)})
 
 
 if __name__ == "__main__":

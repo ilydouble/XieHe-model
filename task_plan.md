@@ -193,8 +193,8 @@
 - [complete] 178. 交叉核对当前图像是否保留被过滤病例，记录证据链并给出明确结论；保持数据集只读
 - [complete] 179. 固化20类恢复边界：原始55行来源、当前split、bbox规范、Corner ROI映射及训练/评测配置影响
 - [complete] 180. 实现可预演、原子应用、可恢复的V18/V19增量恢复脚本与回归测试
-- [in_progress] 181. 将Corner训练YAML、数据说明和相关评测类别契约扩展为V0–V19，保持六点Pose不变
-- [pending] 182. 真实预演后备份并恢复54张原图标签及受影响train ROI标签，不重建图像
+- [complete] 181. 将Corner训练YAML、数据说明和相关评测类别契约扩展为V0–V19，保持六点Pose不变
+- [in_progress] 182. 真实预演后备份并恢复54张原图标签及受影响train ROI标签，不重建图像
 - [pending] 183. 全量验证2499份原图标签、1999份ROI标签、类别分布、坐标、哈希、split与Ultralytics实载
 - [pending] 184. 固化恢复manifest/报告/训练命令，提交本轮代码文档并交付重新训练入口
 

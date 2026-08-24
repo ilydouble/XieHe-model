@@ -2,7 +2,7 @@
 """
 AP 正面脊柱椎体角点检测模型训练
 - 模型: YOLO11 Pose
-- 任务: 18 个椎体类别, 每个 4 个角点关键点 (TL/TR/BR/BL)
+- 任务: 20 个椎体类别, 每个 4 个角点关键点 (TL/TR/BR/BL)
 - 数据: datasets/pose_corner_data (train/val/test)
 
 用法:

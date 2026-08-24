@@ -26,6 +26,14 @@ class CompareCornerModelsTest(unittest.TestCase):
         self.assertEqual(parsed.box_xyxy, (40.0, 60.0, 60.0, 140.0))
         self.assertEqual(parsed.keypoints[0], (40.0, 60.0, 2.0))
 
+    def test_parse_supports_optional_l6_and_t13_classes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "label.txt"
+            payload = "0.5 0.5 0.2 0.4 0.4 0.3 2 0.6 0.3 2 0.6 0.7 2 0.4 0.7 2"
+            path.write_text(f"18 {payload}\n19 {payload}\n", encoding="utf-8")
+            parsed = MODULE.parse_corner_label(path, 100, 200)
+        self.assertEqual(set(parsed), {18, 19})
+
     def test_production_assignments_nms_then_y_sort(self):
         upper = obj(8, 10, 0.8)
         upper_duplicate = obj(3, 11, 0.7)
@@ -48,6 +56,13 @@ class CompareCornerModelsTest(unittest.TestCase):
         self.assertEqual(metrics["detected_points"], 4)
         self.assertEqual(metrics["missing_vertebrae"], [1])
         self.assertEqual(metrics["mean_error_px"], 0.0)
+
+    def test_native_class_contract_does_not_y_rank_t13_as_bottom(self):
+        truth = {12: obj(12, 20), 19: obj(19, 30), 13: obj(13, 40), 18: obj(18, 60)}
+        native = MODULE.native_assignments(list(truth.values()), 0.5)
+        metrics = MODULE.evaluate_assignments(truth, native, 100, 100)
+        self.assertTrue(metrics["exact_ground_truth"])
+        self.assertEqual(metrics["truth_classes"], [12, 13, 18, 19])
 
     def test_package_hashes_exclude_manifest(self):
         with tempfile.TemporaryDirectory() as temporary:

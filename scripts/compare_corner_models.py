@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare two 18-vertebra, four-corner YOLO Pose models on one labelled test set."""
+"""Compare two 20-class, four-corner YOLO Pose models on one labelled test set."""
 
 from __future__ import annotations
 
@@ -19,6 +19,10 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
 CORNER_NAMES = ("TL", "TR", "BR", "BL")
+BASE_CLASS_IDS = frozenset(range(18))
+OPTIONAL_CLASS_IDS = frozenset({18, 19})
+ALL_CLASS_IDS = BASE_CLASS_IDS | OPTIONAL_CLASS_IDS
+PRIMARY_MODE = "native"
 GT_COLOR = (45, 220, 90)
 OLD_COLOR = (235, 70, 185)
 NEW_COLOR = (35, 205, 235)
@@ -58,7 +62,7 @@ def parse_corner_label(path: Path, width: int, height: int) -> dict[int, CornerO
         if len(values) != 17:
             raise ValueError(f"{path}:{line_number}: expected 17 fields, found {len(values)}")
         class_id = int(float(values[0]))
-        if class_id in objects or not 0 <= class_id < 18:
+        if class_id in objects or class_id not in ALL_CLASS_IDS:
             raise ValueError(f"{path}:{line_number}: invalid or duplicate class {class_id}")
         cx, cy, box_w, box_h = (float(value) for value in values[1:5])
         box = (
@@ -158,13 +162,16 @@ def evaluate_assignments(
     expected_classes = set(truth)
     assigned_classes = set(assigned)
     return {
+        "truth_classes": sorted(expected_classes),
         "truth_vertebrae": len(expected_classes),
         "predicted_vertebrae": len(assigned_classes),
         "matched_vertebrae": len(expected_classes & assigned_classes),
         "missing_vertebrae": sorted(expected_classes - assigned_classes),
         "extra_vertebrae": sorted(assigned_classes - expected_classes),
-        "complete_18": expected_classes == set(range(18)) and set(range(18)).issubset(assigned_classes),
-        "exactly_18": assigned_classes == set(range(18)),
+        "complete_ground_truth": expected_classes.issubset(assigned_classes),
+        "exact_ground_truth": assigned_classes == expected_classes,
+        "complete_18": expected_classes == BASE_CLASS_IDS and BASE_CLASS_IDS.issubset(assigned_classes),
+        "exactly_18": assigned_classes == BASE_CLASS_IDS,
         "visible_points": len(visible),
         "detected_points": len(measured),
         "mean_error_px": None if not errors else round(statistics.fmean(errors), 4),
@@ -183,7 +190,7 @@ def aggregate_mode(samples: Sequence[dict], model_key: str, mode: str) -> dict:
     errors = [row["distance_px"] for row in measured]
     diag_errors = [row["distance_diagonal"] for row in measured]
     per_vertebra = {}
-    for class_id in range(18):
+    for class_id in sorted(ALL_CLASS_IDS):
         rows = [row for row in points if row["class_id"] == class_id]
         found = [row for row in rows if row["distance_px"] is not None]
         per_vertebra[f"V{class_id}"] = {
@@ -213,6 +220,8 @@ def aggregate_mode(samples: Sequence[dict], model_key: str, mode: str) -> dict:
         "pck_20_all": round(sum(value <= 20 for value in errors) / len(points), 6) if points else None,
         "complete_18_images": sum(metric["complete_18"] for metric in metrics),
         "exactly_18_images": sum(metric["exactly_18"] for metric in metrics),
+        "complete_ground_truth_images": sum(metric["complete_ground_truth"] for metric in metrics),
+        "exact_ground_truth_images": sum(metric["exact_ground_truth"] for metric in metrics),
         "mean_predicted_vertebrae": round(statistics.fmean(metric["predicted_vertebrae"] for metric in metrics), 3),
         "per_vertebra": per_vertebra,
         "per_corner": per_corner,
@@ -220,8 +229,8 @@ def aggregate_mode(samples: Sequence[dict], model_key: str, mode: str) -> dict:
 
 
 def compare_samples(samples: Sequence[dict]) -> dict:
-    comparable = [sample for sample in samples if sample["old"]["production"]["mean_error_px"] is not None and sample["new"]["production"]["mean_error_px"] is not None]
-    deltas = [sample["old"]["production"]["mean_error_px"] - sample["new"]["production"]["mean_error_px"] for sample in comparable]
+    comparable = [sample for sample in samples if sample["old"][PRIMARY_MODE]["mean_error_px"] is not None and sample["new"][PRIMARY_MODE]["mean_error_px"] is not None]
+    deltas = [sample["old"][PRIMARY_MODE]["mean_error_px"] - sample["new"][PRIMARY_MODE]["mean_error_px"] for sample in comparable]
     return {
         "comparable_images": len(comparable),
         "new_improved_images": sum(delta > 0.05 for delta in deltas),
@@ -233,11 +242,13 @@ def compare_samples(samples: Sequence[dict]) -> dict:
 
 
 def add_hybrid_metrics(samples: Sequence[dict], summary: dict) -> None:
-    """Use y-order when it yields exactly 18 vertebrae, otherwise fall back to native classes."""
+    """Retain the legacy 18-class y-order diagnostic only for ordinary 18-class GT."""
     for model_key in ("old", "new"):
         for sample in samples:
             production = sample[model_key]["production"]
-            sample[model_key]["hybrid"] = production if production["predicted_vertebrae"] == 18 else sample[model_key]["native"]
+            native = sample[model_key]["native"]
+            use_legacy_y_order = native["truth_classes"] == sorted(BASE_CLASS_IDS) and production["predicted_vertebrae"] == 18
+            sample[model_key]["hybrid"] = production if use_legacy_y_order else native
         summary[model_key]["hybrid"] = aggregate_mode(samples, model_key, "hybrid")
 
 
@@ -255,8 +266,8 @@ def aggregate_sources(samples: Sequence[dict]) -> dict:
     result = {}
     for group in sorted({source_group(sample["filename"]) for sample in samples}):
         rows = [sample for sample in samples if source_group(sample["filename"]) == group]
-        old_errors = [sample["old"]["production"]["mean_error_px"] for sample in rows]
-        new_errors = [sample["new"]["production"]["mean_error_px"] for sample in rows]
+        old_errors = [sample["old"][PRIMARY_MODE]["mean_error_px"] for sample in rows]
+        new_errors = [sample["new"][PRIMARY_MODE]["mean_error_px"] for sample in rows]
         deltas = [old - new for old, new in zip(old_errors, new_errors)]
         result[group] = {
             "sample_count": len(rows),
@@ -312,7 +323,7 @@ def render_preview(image_path: Path, truth: dict[int, CornerObject], old: dict[i
         source.load()
         source = ImageOps.exif_transpose(source).convert("RGB")
         base, scale = fit_image(source)
-    gt_panel = add_title(draw_objects(base, truth.values(), GT_COLOR, scale), "GT: 18 vertebrae / 72 corners", GT_COLOR)
+    gt_panel = add_title(draw_objects(base, truth.values(), GT_COLOR, scale), f"GT: {len(truth)} vertebrae / {len(truth) * 4} corners", GT_COLOR)
     old_panel = draw_objects(base, truth.values(), GT_COLOR, scale)
     old_panel = add_title(draw_objects(old_panel, old.values(), OLD_COLOR, scale), f"Old: {old_error} px", OLD_COLOR)
     new_panel = draw_objects(base, truth.values(), GT_COLOR, scale)
@@ -390,7 +401,7 @@ def write_csv(path: Path, samples: Sequence[dict]) -> None:
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields); writer.writeheader()
         for sample in samples:
-            old_prod, new_prod = sample["old"]["production"], sample["new"]["production"]
+            old_prod, new_prod = sample["old"][PRIMARY_MODE], sample["new"][PRIMARY_MODE]
             writer.writerow({
                 "filename": sample["filename"], "old_error_px": old_prod["mean_error_px"], "new_error_px": new_prod["mean_error_px"],
                 "new_improvement_px": sample["new_improvement_px"], "old_predicted": old_prod["predicted_vertebrae"], "new_predicted": new_prod["predicted_vertebrae"],
@@ -401,6 +412,10 @@ def write_csv(path: Path, samples: Sequence[dict]) -> None:
 
 HTML = """<!doctype html><meta charset=utf-8><title>Corner新旧模型对比</title><style>*{box-sizing:border-box}body{margin:0;background:#11151b;color:#edf2f7;font-family:-apple-system,sans-serif}.top{position:sticky;top:0;background:#18202bee;padding:12px 18px}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}button,select,input{background:#202b38;color:#fff;border:1px solid #46566a;border-radius:7px;padding:7px 9px}.main{max-width:1900px;margin:auto;padding:15px}.card{background:#1a222d;border:1px solid #34404f;border-radius:10px;padding:14px}.preview{width:100%}.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin:10px 0}.metric{background:#111821;padding:9px;border-radius:7px}.good{color:#65e097}.bad{color:#ff8080}</style><div class=top><div class=row><b>Corner新旧模型对比</b><select id=filter><option value=all>全部</option><option value=worse>新模型恶化</option><option value=better>新模型改善</option><option value=incomplete>18节不完整</option></select><select id=sort><option value=worse>按恶化最多</option><option value=better>按改善最多</option><option value=newbad>按新模型误差</option></select><button id=prev>←</button><button id=next>→</button><input id=jump type=number min=1 style=width:80px></div><div id=stats></div></div><main class=main><section class=card><h2 id=title></h2><img class=preview id=preview><div class=meta id=meta></div><div id=position></div></section></main><script src=review_data.js></script><script>(()=>{const d=window.CORNER_COMPARISON,s=d.samples,$=x=>document.getElementById(x);let ids=[],at=0;function refresh(){ids=s.map((x,i)=>i).filter(i=>$('filter').value==='all'||($('filter').value==='worse'&&s[i].new_improvement_px<0)||($('filter').value==='better'&&s[i].new_improvement_px>0)||($('filter').value==='incomplete'&&(!s[i].old.production.exactly_18||!s[i].new.production.exactly_18)));ids.sort((a,b)=>$('sort').value==='better'?s[b].new_improvement_px-s[a].new_improvement_px:$('sort').value==='newbad'?s[b].new.production.mean_error_px-s[a].new.production.mean_error_px:s[a].new_improvement_px-s[b].new_improvement_px);at=Math.min(at,Math.max(0,ids.length-1));render()}function render(){const x=s[ids[at]];if(!x)return;$('stats').textContent=`${d.summary.sample_count}张：新模型改善 ${d.comparison.new_improved_images}，恶化 ${d.comparison.new_worsened_images}，平均改善 ${d.comparison.mean_improvement_px}px`;$('title').textContent=x.filename;$('preview').src=x.preview;const delta=x.new_improvement_px,cls=delta>=0?'good':'bad';$('meta').innerHTML=`<div class=metric>旧误差 <b>${x.old.production.mean_error_px}px</b></div><div class=metric>新误差 <b>${x.new.production.mean_error_px}px</b></div><div class=metric>改善 <b class=${cls}>${delta}px</b></div><div class=metric>旧/新检出 <b>${x.old.production.predicted_vertebrae}/${x.new.production.predicted_vertebrae}</b></div><div class=metric>旧/新耗时 <b>${x.old.inference_ms}/${x.new.inference_ms}ms</b></div>`;$('position').textContent=`${at+1}/${ids.length}`;$('jump').value=at+1}function move(n){at=Math.max(0,Math.min(ids.length-1,at+n));render()}$('filter').onchange=()=>{at=0;refresh()};$('sort').onchange=()=>{at=0;refresh()};$('prev').onclick=()=>move(-1);$('next').onclick=()=>move(1);$('jump').onchange=()=>{at=Math.max(0,Math.min(ids.length-1,Number($('jump').value)-1));render()};document.onkeydown=e=>{if(e.key==='ArrowLeft')move(-1);if(e.key==='ArrowRight')move(1)};refresh()})()</script>"""
 
+# The 20-class contract must preserve semantic model classes.  In particular,
+# class 19 is T13 and is not the bottom-most vertebra, so y-rank is diagnostic only.
+HTML = """<!doctype html><meta charset=utf-8><title>Corner 20类模型对比</title><style>*{box-sizing:border-box}body{margin:0;background:#11151b;color:#edf2f7;font-family:-apple-system,sans-serif}.top{position:sticky;top:0;background:#18202bee;padding:12px 18px}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}button,select,input{background:#202b38;color:#fff;border:1px solid #46566a;border-radius:7px;padding:7px 9px}.main{max-width:1900px;margin:auto;padding:15px}.card{background:#1a222d;border:1px solid #34404f;border-radius:10px;padding:14px}.preview{width:100%}.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin:10px 0}.metric{background:#111821;padding:9px;border-radius:7px}.good{color:#65e097}.bad{color:#ff8080}</style><div class=top><div class=row><b>Corner 20类语义对比</b><select id=filter><option value=all>全部</option><option value=worse>新模型恶化</option><option value=better>新模型改善</option><option value=incomplete>未完整匹配GT类别</option></select><select id=sort><option value=worse>按恶化最多</option><option value=better>按改善最多</option><option value=newbad>按新模型误差</option></select><button id=prev>←</button><button id=next>→</button><input id=jump type=number min=1 style=width:80px></div><div id=stats></div></div><main class=main><section class=card><h2 id=title></h2><img class=preview id=preview><div class=meta id=meta></div><div id=position></div></section></main><script src=review_data.js></script><script>(()=>{const d=window.CORNER_COMPARISON,s=d.samples,$=x=>document.getElementById(x),m='native';let ids=[],at=0;function refresh(){ids=s.map((x,i)=>i).filter(i=>$('filter').value==='all'||($('filter').value==='worse'&&s[i].new_improvement_px<0)||($('filter').value==='better'&&s[i].new_improvement_px>0)||($('filter').value==='incomplete'&&(!s[i].old[m].complete_ground_truth||!s[i].new[m].complete_ground_truth)));ids.sort((a,b)=>$('sort').value==='better'?s[b].new_improvement_px-s[a].new_improvement_px:$('sort').value==='newbad'?s[b].new[m].mean_error_px-s[a].new[m].mean_error_px:s[a].new_improvement_px-s[b].new_improvement_px);at=Math.min(at,Math.max(0,ids.length-1));render()}function render(){const x=s[ids[at]];if(!x)return;$('stats').textContent=`${d.summary.sample_count}张：新模型改善 ${d.comparison.new_improved_images}，恶化 ${d.comparison.new_worsened_images}，平均改善 ${d.comparison.mean_improvement_px}px`;$('title').textContent=x.filename;$('preview').src=x.preview;const delta=x.new_improvement_px,cls=delta>=0?'good':'bad';$('meta').innerHTML=`<div class=metric>旧误差 <b>${x.old[m].mean_error_px}px</b></div><div class=metric>新误差 <b>${x.new[m].mean_error_px}px</b></div><div class=metric>改善 <b class=${cls}>${delta}px</b></div><div class=metric>旧/新检出 <b>${x.old[m].predicted_vertebrae}/${x.new[m].predicted_vertebrae}</b></div><div class=metric>旧/新耗时 <b>${x.old.inference_ms}/${x.new.inference_ms}ms</b></div>`;$('position').textContent=`${at+1}/${ids.length}`;$('jump').value=at+1}function move(n){at=Math.max(0,Math.min(ids.length-1,at+n));render()}$('filter').onchange=()=>{at=0;refresh()};$('sort').onchange=()=>{at=0;refresh()};$('prev').onclick=()=>move(-1);$('next').onclick=()=>move(1);$('jump').onchange=()=>{at=Math.max(0,Math.min(ids.length-1,at+Number($('jump').value)-1-at));render()};document.onkeydown=e=>{if(e.key==='ArrowLeft')move(-1);if(e.key==='ArrowRight')move(1)};refresh()})()</script>"""
+
 
 def write_report(path: Path, manifest: dict) -> None:
     old, new = manifest["summary"]["old"], manifest["summary"]["new"]
@@ -410,8 +425,8 @@ def write_report(path: Path, manifest: dict) -> None:
         for group, values in manifest["source_comparison"].items()
     )
     vertebra_rows = "\n".join(
-        f"| {name} | {old['production']['per_vertebra'][name]['mean_error_px']} | {new['production']['per_vertebra'][name]['mean_error_px']} | {round(old['production']['per_vertebra'][name]['mean_error_px'] - new['production']['per_vertebra'][name]['mean_error_px'], 3)} |"
-        for name in old["production"]["per_vertebra"]
+        f"| {name} | {old[PRIMARY_MODE]['per_vertebra'][name]['mean_error_px']} | {new[PRIMARY_MODE]['per_vertebra'][name]['mean_error_px']} | {None if old[PRIMARY_MODE]['per_vertebra'][name]['mean_error_px'] is None or new[PRIMARY_MODE]['per_vertebra'][name]['mean_error_px'] is None else round(old[PRIMARY_MODE]['per_vertebra'][name]['mean_error_px'] - new[PRIMARY_MODE]['per_vertebra'][name]['mean_error_px'], 3)} |"
+        for name in old[PRIMARY_MODE]["per_vertebra"]
     )
     official = manifest["official_test"]
     official_section = ""
@@ -430,34 +445,34 @@ def write_report(path: Path, manifest: dict) -> None:
 """
     content = f"""# Corner新旧模型同test对比
 
-- test：{manifest['summary']['sample_count']}张，全部18节、每图72点
+- test：{manifest['summary']['sample_count']}张；普通病例为V0–V17，变异病例可选含V18/L6或V19/T13
 - 旧模型：`{manifest['models']['old']['path']}`
 - 新模型：`{manifest['models']['new']['path']}`
-- 推理：imgsz={manifest['configuration']['imgsz']}，production conf={manifest['configuration']['confidence']}，IoU={manifest['configuration']['nms_iou']}
+- 推理：imgsz={manifest['configuration']['imgsz']}，conf={manifest['configuration']['confidence']}；主指标保留模型原始类别ID
 
-## 线上式y排序结果
+## 20类语义主结果（native class）
 
 | 指标 | 旧模型 | 新模型 |
 |---|---:|---:|
-| 72点召回 | {old['production']['point_recall']:.2%} | {new['production']['point_recall']:.2%} |
-| 平均误差(px) | {old['production']['mean_error_px']} | {new['production']['mean_error_px']} |
-| 中位误差(px) | {old['production']['median_error_px']} | {new['production']['median_error_px']} |
-| P90误差(px) | {old['production']['p90_error_px']} | {new['production']['p90_error_px']} |
-| PCK@10(含漏点失败) | {old['production']['pck_10_all']:.2%} | {new['production']['pck_10_all']:.2%} |
-| PCK@20(含漏点失败) | {old['production']['pck_20_all']:.2%} | {new['production']['pck_20_all']:.2%} |
-| 恰好18节图像 | {old['production']['exactly_18_images']}/{manifest['summary']['sample_count']} | {new['production']['exactly_18_images']}/{manifest['summary']['sample_count']} |
+| 标注点召回 | {old[PRIMARY_MODE]['point_recall']:.2%} | {new[PRIMARY_MODE]['point_recall']:.2%} |
+| 平均误差(px) | {old[PRIMARY_MODE]['mean_error_px']} | {new[PRIMARY_MODE]['mean_error_px']} |
+| 中位误差(px) | {old[PRIMARY_MODE]['median_error_px']} | {new[PRIMARY_MODE]['median_error_px']} |
+| P90误差(px) | {old[PRIMARY_MODE]['p90_error_px']} | {new[PRIMARY_MODE]['p90_error_px']} |
+| PCK@10(含漏点失败) | {old[PRIMARY_MODE]['pck_10_all']:.2%} | {new[PRIMARY_MODE]['pck_10_all']:.2%} |
+| PCK@20(含漏点失败) | {old[PRIMARY_MODE]['pck_20_all']:.2%} | {new[PRIMARY_MODE]['pck_20_all']:.2%} |
+| 完整匹配GT类别图像 | {old[PRIMARY_MODE]['exact_ground_truth_images']}/{manifest['summary']['sample_count']} | {new[PRIMARY_MODE]['exact_ground_truth_images']}/{manifest['summary']['sample_count']} |
 | 自定义单图推理均值(ms) | {old['timing']['mean_ms']} | {new['timing']['mean_ms']} |
 
-## 低成本混合编号模拟
+## 旧18类y排序兼容诊断
 
-当production y排序恰好得到18节时沿用；否则改用模型原始V0–V17类别。该策略不增加模型推理次数。
+仅当GT严格为V0–V17且y排序恰好得到18节时沿用旧逻辑；含L6/T13时必须使用模型原始类别。V19/T13位于T12与L1之间，不能按全局y排序得到类别19。
 
 | 指标 | 旧模型 | 新模型 |
 |---|---:|---:|
 | 平均误差(px) | {old['hybrid']['mean_error_px']} | {new['hybrid']['mean_error_px']} |
 | P90误差(px) | {old['hybrid']['p90_error_px']} | {new['hybrid']['p90_error_px']} |
 | PCK@20(含漏点失败) | {old['hybrid']['pck_20_all']:.2%} | {new['hybrid']['pck_20_all']:.2%} |
-| 72点召回 | {old['hybrid']['point_recall']:.2%} | {new['hybrid']['point_recall']:.2%} |
+| 标注点召回 | {old['hybrid']['point_recall']:.2%} | {new['hybrid']['point_recall']:.2%} |
 
 新模型逐图改善{comparison['new_improved_images']}张、恶化{comparison['new_worsened_images']}张、近似持平{comparison['near_tie_images']}张；平均改善为{comparison['mean_improvement_px']} px（正数表示新模型更好）。
 
@@ -467,7 +482,7 @@ def write_report(path: Path, manifest: dict) -> None:
 |---|---:|---:|---:|---:|---:|
 {source_rows}
 
-## 椎体分组（72点汇总）
+## 椎体类别分组
 
 | 椎体 | 旧误差(px) | 新误差(px) | 改善(px) |
 |---|---:|---:|---:|
@@ -475,7 +490,7 @@ def write_report(path: Path, manifest: dict) -> None:
 
 {official_section}
 
-`打开对比页面.html`可按改善、恶化、完整率和误差逐图查看。绿色为GT，洋红为旧模型，青色为新模型。
+`打开对比页面.html`可按改善、恶化、GT类别完整率和误差逐图查看。绿色为GT，洋红为旧模型，青色为新模型。
 """
     path.write_text(content, encoding="utf-8")
 
@@ -516,9 +531,9 @@ def build_comparison(args: argparse.Namespace) -> dict:
         new_production = production_assignments(new_raw, args.confidence, args.nms_iou)
         old_metrics = {"native": evaluate_assignments(truth, old_native, width, height), "production": evaluate_assignments(truth, old_production, width, height)}
         new_metrics = {"native": evaluate_assignments(truth, new_native, width, height), "production": evaluate_assignments(truth, new_production, width, height)}
-        improvement = round(old_metrics["production"]["mean_error_px"] - new_metrics["production"]["mean_error_px"], 4)
+        improvement = round(old_metrics[PRIMARY_MODE]["mean_error_px"] - new_metrics[PRIMARY_MODE]["mean_error_px"], 4)
         preview = f"previews/{index:04d}_{image_path.stem}.jpg"
-        render_preview(image_path, truth, old_production, new_production, old_metrics["production"]["mean_error_px"], new_metrics["production"]["mean_error_px"], args.output_dir / preview)
+        render_preview(image_path, truth, old_native, new_native, old_metrics[PRIMARY_MODE]["mean_error_px"], new_metrics[PRIMARY_MODE]["mean_error_px"], args.output_dir / preview)
         samples.append({
             "filename": image_path.name, "width": width, "height": height, "image_sha256": sha256_file(image_path), "label_sha256": sha256_file(label_path),
             "preview": preview, "new_improvement_px": improvement,
@@ -536,7 +551,7 @@ def build_comparison(args: argparse.Namespace) -> dict:
         "new": official_test_metrics(args.new_model, args.data_yaml, args.imgsz, args.device, args.output_dir / "official_val"),
     }
     manifest = {
-        "configuration": {"imgsz": args.imgsz, "device": args.device, "raw_conf": args.raw_conf, "confidence": args.confidence, "nms_iou": args.nms_iou},
+        "configuration": {"imgsz": args.imgsz, "device": args.device, "raw_conf": args.raw_conf, "confidence": args.confidence, "nms_iou": args.nms_iou, "primary_mode": PRIMARY_MODE},
         "models": {
             "old": {"path": str(args.old_model.resolve()), "sha256": sha256_file(args.old_model)},
             "new": {"path": str(args.new_model.resolve()), "sha256": sha256_file(args.new_model)},

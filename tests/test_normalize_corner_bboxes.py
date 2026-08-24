@@ -71,6 +71,18 @@ class NormalizeCornerBboxesTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "安全门槛"):
                 normalizer.normalize_dataset(dataset, expected_labels=2)
 
+    def test_optional_l6_and_t13_rows_are_normalized_but_not_required(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            dataset, label_path, _ = self.make_dataset(Path(directory))
+            label_path.write_text(label_path.read_text(encoding="utf-8") + row(18) + "\n" + row(19) + "\n", encoding="utf-8")
+            result = normalizer.normalize_dataset(dataset, expected_labels=1)
+            self.assertEqual(result["rows"], 20)
+            self.assertEqual(result["changed_rows"], 20)
+
+            text_without_extras = "\n".join(row(class_id) for class_id in range(18)) + "\n"
+            label_path.write_text(text_without_extras, encoding="utf-8")
+            self.assertEqual(normalizer.normalize_dataset(dataset, expected_labels=1)["rows"], 18)
+
 
 if __name__ == "__main__":
     unittest.main()
