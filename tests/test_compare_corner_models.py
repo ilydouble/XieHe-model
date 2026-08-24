@@ -58,6 +58,12 @@ class CompareCornerModelsTest(unittest.TestCase):
         self.assertEqual(set(hashes), {"report.txt"})
         self.assertEqual(len(hashes["report.txt"]), 64)
 
+    def test_source_group(self):
+        self.assertEqual(MODULE.source_group("eap_1.png"), "eap")
+        self.assertEqual(MODULE.source_group("1.2.156.png"), "server_uid")
+        self.assertEqual(MODULE.source_group("123__CR.png"), "legacy_numeric")
+        self.assertEqual(MODULE.source_group("WZSY_sample.png"), "new_site_code")
+
 
 if __name__ == "__main__":
     unittest.main()

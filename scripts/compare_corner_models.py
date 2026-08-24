@@ -241,6 +241,34 @@ def add_hybrid_metrics(samples: Sequence[dict], summary: dict) -> None:
         summary[model_key]["hybrid"] = aggregate_mode(samples, model_key, "hybrid")
 
 
+def source_group(filename: str) -> str:
+    if filename.startswith("eap_"):
+        return "eap"
+    if filename.startswith("1.2."):
+        return "server_uid"
+    if filename[:1].isdigit():
+        return "legacy_numeric"
+    return "new_site_code"
+
+
+def aggregate_sources(samples: Sequence[dict]) -> dict:
+    result = {}
+    for group in sorted({source_group(sample["filename"]) for sample in samples}):
+        rows = [sample for sample in samples if source_group(sample["filename"]) == group]
+        old_errors = [sample["old"]["production"]["mean_error_px"] for sample in rows]
+        new_errors = [sample["new"]["production"]["mean_error_px"] for sample in rows]
+        deltas = [old - new for old, new in zip(old_errors, new_errors)]
+        result[group] = {
+            "sample_count": len(rows),
+            "old_mean_image_error_px": round(statistics.fmean(old_errors), 3),
+            "new_mean_image_error_px": round(statistics.fmean(new_errors), 3),
+            "mean_improvement_px": round(statistics.fmean(deltas), 3),
+            "new_improved_images": sum(delta > 0.05 for delta in deltas),
+            "new_worsened_images": sum(delta < -0.05 for delta in deltas),
+        }
+    return result
+
+
 def choose_font(size: int) -> ImageFont.ImageFont:
     for candidate in ("/System/Library/Fonts/Supplemental/Arial.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"):
         if Path(candidate).is_file():
@@ -377,6 +405,14 @@ HTML = """<!doctype html><meta charset=utf-8><title>Corner新旧模型对比</ti
 def write_report(path: Path, manifest: dict) -> None:
     old, new = manifest["summary"]["old"], manifest["summary"]["new"]
     comparison = manifest["comparison"]
+    source_rows = "\n".join(
+        f"| {group} | {values['sample_count']} | {values['old_mean_image_error_px']} | {values['new_mean_image_error_px']} | {values['mean_improvement_px']} | {values['new_improved_images']}/{values['new_worsened_images']} |"
+        for group, values in manifest["source_comparison"].items()
+    )
+    vertebra_rows = "\n".join(
+        f"| {name} | {old['production']['per_vertebra'][name]['mean_error_px']} | {new['production']['per_vertebra'][name]['mean_error_px']} | {round(old['production']['per_vertebra'][name]['mean_error_px'] - new['production']['per_vertebra'][name]['mean_error_px'], 3)} |"
+        for name in old["production"]["per_vertebra"]
+    )
     official = manifest["official_test"]
     official_section = ""
     if official is not None:
@@ -425,6 +461,18 @@ def write_report(path: Path, manifest: dict) -> None:
 
 新模型逐图改善{comparison['new_improved_images']}张、恶化{comparison['new_worsened_images']}张、近似持平{comparison['near_tie_images']}张；平均改善为{comparison['mean_improvement_px']} px（正数表示新模型更好）。
 
+## 来源分组（逐图平均）
+
+| 来源 | 数量 | 旧误差(px) | 新误差(px) | 改善(px) | 改善/恶化张数 |
+|---|---:|---:|---:|---:|---:|
+{source_rows}
+
+## 椎体分组（72点汇总）
+
+| 椎体 | 旧误差(px) | 新误差(px) | 改善(px) |
+|---|---:|---:|---:|
+{vertebra_rows}
+
 {official_section}
 
 `打开对比页面.html`可按改善、恶化、完整率和误差逐图查看。绿色为GT，洋红为旧模型，青色为新模型。
@@ -442,6 +490,7 @@ def package_file_hashes(output_dir: Path) -> dict[str, str]:
 
 def finalize_package(output_dir: Path, manifest: dict) -> None:
     add_hybrid_metrics(manifest["samples"], manifest["summary"])
+    manifest["source_comparison"] = aggregate_sources(manifest["samples"])
     data = {"summary": manifest["summary"], "comparison": manifest["comparison"], "samples": manifest["samples"]}
     (output_dir / "review_data.js").write_text("window.CORNER_COMPARISON=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n", encoding="utf-8")
     write_report(output_dir / "对比报告.md", manifest)
