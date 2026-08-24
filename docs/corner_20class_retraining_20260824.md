@@ -17,7 +17,7 @@ cd 6-train_ap_model
 bash train_corner.sh --roi-mixed --best --device 0 --name corner_20class_roi_mixed_v1
 ```
 
-这会使用`corner_data_roi_mixed.yaml`、YOLO11l-pose、imgsz=800、batch=4、200轮和低干扰ROI增强配置。显存不足时把`--batch 4`改为`--batch 2`，或改用`--model m`。
+这会使用`corner_data_roi_mixed.yaml`、YOLO11l-pose、imgsz=800、batch=4、150轮和低干扰ROI增强配置。显存不足时把`--batch 4`改为`--batch 2`，或改用`--model m`。
 
 这是类别数从18扩到20后的新训练，不要使用`--resume`续接旧18类run。脚本默认从通用YOLO11 Pose预训练权重开始，输出位于：
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import importlib.util
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -44,6 +45,15 @@ class TrainCornerRoiConfigTest(unittest.TestCase):
             data = yaml.safe_load((SCRIPT.parent / name).read_text(encoding="utf-8"))
             self.assertEqual(data["nc"], 20)
             self.assertEqual(data["names"], {index: f"V{index}" for index in range(20)})
+
+    def test_shell_best_profile_uses_large_150_epoch_config(self):
+        shell = SCRIPT.parent / "train_corner.sh"
+        help_text = subprocess.run(
+            ["bash", str(shell), "--help"], check=True, capture_output=True, text=True
+        ).stdout
+        self.assertIn("--best       最佳性能  : large,  150 轮, 800px, batch=4", help_text)
+        source = shell.read_text(encoding="utf-8")
+        self.assertIn('MODEL="l"; EPOCHS=150; IMGSZ=800; BATCH=4', source)
 
 
 if __name__ == "__main__":
