@@ -195,8 +195,8 @@
 - [complete] 180. 实现可预演、原子应用、可恢复的V18/V19增量恢复脚本与回归测试
 - [complete] 181. 将Corner训练YAML、数据说明和相关评测类别契约扩展为V0–V19，保持六点Pose不变
 - [complete] 182. 真实预演后备份并恢复54张原图标签及受影响train ROI标签，不重建图像
-- [in_progress] 183. 全量验证2499份原图标签、1999份ROI标签、类别分布、坐标、哈希、split与Ultralytics实载
-- [pending] 184. 固化恢复manifest/报告/训练命令，提交本轮代码文档并交付重新训练入口
+- [complete] 183. 全量验证2499份原图标签、1999份ROI标签、类别分布、坐标、哈希、split与Ultralytics实载
+- [complete] 184. 固化恢复manifest/报告/训练命令，提交本轮代码文档并交付重新训练入口
 
 ## 遇到的错误
 
