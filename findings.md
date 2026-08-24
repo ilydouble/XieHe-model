@@ -563,3 +563,8 @@
 - 历史审计记录明确确认服务器原标签曾包含55个超范围实例：class 18为44行、class 19为11行，分布在54份文件。它们不是模型推理结果，而是服务器原Corner标签中的真实标签行。
 - `scripts/rebuild_corner_dataset_with_server.py::sanitize_label`逐行保留class 0–17，把其他class只记录到`removed_classes`而不拒绝整份文件；`build_plan`随后仍把该图像/标签写入1381份服务器导入记录。因此代码语义是“删除V18/V19行、保留病例”，不是整例排除。
 - `docs/corner_dataset_server_rebuild_report.md`与代码一致：服务器原55行V18/V19在导入时被过滤，18类配置不扩充；服务器1381份图像整体被导入。仍需从原始服务器源或manifest恢复54份文件名及split，确认实际执行结果与设计完全一致。
+- 2025年最早数据报告`1-data_report/DATA_ANALYSIS_REPORT.md`明确把原始分割集定义为20类：class 18=L6共44例，class 19=T13共11例。旧`202605AP_PUMCH_Data`的743份报告则只有class 1–17，不含额外椎体；V18/V19来源是服务器/原始seg数据，而不是被移出的旧743角点集。
+- 直接扫描仍在`/Users/liruirui/Downloads/labels`的服务器原标签，复现为54份文件、55行：class 18为44行，class 19为11行；原split为train/val/test 44/6/4。`2707336438__CR_TSPINE_20190731_slice0000.txt`一份同时含class 18和19，因此实例55而病例54。
+- 将这54份原始标签逐名映射当前2499份活动数据，54/54全部存在；对应原图SHA-256均一致，过滤后的V0–V17类别集合和每个角点三元组也逐字段一致，图像不匹配、类别不匹配、角点不匹配均为0。后续患者级重分将它们分布为train/val/test 40/8/6。
+- 实际执行路径也可由代码确认：`apply_plan`对每个服务器record先复制原图，再调用`sanitize_label`写入过滤后的标签，并用`sanitized_label_sha256`验证；不会因为存在class 18/19而跳过该record。因此最终事实是“病例和原图保留，只删除V18/V19标签行”。
+- 当前Corner 250张test中有6张来自历史额外椎体病例；旧/新模型分别在其中3/2张输出19节，六张平均production误差26.327/26.518 px，几乎不变。新模型全test的15张≥19节预测中只有2张属于已知历史额外椎体病例，其余13张不在这份可追溯清单中，不能把所有19节预测都解释为已知L6/T13变异。
