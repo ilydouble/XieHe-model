@@ -516,3 +516,5 @@
 - 新拷贝权重明确为`6-train_ap_model/runs/corner/best_performance-3/weights/best.pt`，本地修改时间2026-08-24 07:55:57、大小52,940,266字节；`args.yaml`确认使用`corner_data_roi_mixed.yaml`、imgsz=800、batch=4、SGD与`roi_low`弱增强，目标是原图+ROI混合Corner模型。
 - 对应训练计划200轮，但`results.csv`止于143轮，符合patience=100的提前停止。末轮val Pose mAP50-95约0.9426；该数值来自本次训练val，只能用于训练过程参考。
 - 同输入尺寸且最接近的旧基线为`runs/corner/best_performance7/weights/best.pt`，使用旧`corner_data.yaml`、imgsz=800、强增强，完整200轮；末轮val Pose mAP50-95约0.9770。两次训练的数据版本与val组成不同，日志指标不可直接横比，必须在当前同一原始test上重跑。
+- 当前患者重分后的Corner test严格为250张图+250份标签。现有仓库只有六点两阶段模型评测器和Corner标注版本核验工具，没有可直接产出“两个Corner模型、18节×4点”同图对比指标与预览的模型评测入口。
+- 本地工作区没有`xiehe-system`目录；当前任务先完成模型本身在同一原始test上的直接推理公平对比。是否追加线上“六点预测ROI→Corner”链路，需要从仓库现有推理实现和可用Pose权重中确认其坐标/编号契约。
