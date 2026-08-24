@@ -175,8 +175,8 @@
 - [complete] 160. 将二阶段微调默认切换为existing-ROI方案：30轮、lr0=0.0003、每10轮保存，预测ROI保留为可选
 - [complete] 161. 更新配置测试与操作说明，验证YAML实载、Python/Shell dry-run和周期检查点评测命令
 - [complete] 162. 全量回归、diff与工作区边界验收并提交；不生成新ROI、不启动训练、不修改线上
-- [in_progress] 163. 定位新拷贝Corner权重、训练参数、旧基线权重和同源患者隔离test，固定公平对比口径
-- [pending] 164. 复用或补齐Corner批量评测入口，在同一250张原始test上运行新旧模型并记录逐点、逐椎体、完整率和耗时
+- [complete] 163. 定位新拷贝Corner权重、训练参数、旧基线权重和同源患者隔离test，固定公平对比口径
+- [in_progress] 164. 复用或补齐Corner批量评测入口，在同一250张原始test上运行新旧模型并记录逐点、逐椎体、完整率和耗时
 - [pending] 165. 按来源、椎体节段和误差分位分析新旧差异，生成代表样本可视化与可复核结果包
 - [pending] 166. 校验报告、权重/输入哈希、可视化和工作区边界，提交本轮工具与记录并给出模型选择结论
 
@@ -203,6 +203,7 @@
 | 单个`apply_patch`同时删除并重建同一路径被拒绝 | 1 | 改为对现有文档内容做原位整段替换，不使用同路径Delete/Add组合 |
 | `cv`与默认Python均未安装pytest，无法用pytest入口回归 | 2 | 测试文件均为标准`unittest`，改用`cv` Python逐文件直接执行，20项全部通过 |
 | 默认Python用unittest执行时缺少PyYAML | 1 | 不安装依赖，统一改用用户指定且依赖完整的`cv` Python执行全部测试 |
+| 新Corner测试首次动态加载dataclass模块时未注册`sys.modules` | 1 | 按仓库既有动态测试模式先注册模块名再执行，避免Python 3.10 dataclass类型解析失败 |
 | Corner混合集首次无缓存实载在扫描3998张后缺`version` | 1 | 禁写cache的替换函数遗漏原保存函数向内存字典补version的副作用；改为只补内存version但不落盘后重跑 |
 | 最终说明提交时普通`git add datasets/DATASET_README.md`被忽略规则拒绝 | 1 | 不修改用户现有`.gitignore`；只对这一个已跟踪说明文件使用精确`git add -f`，不暂存其他datasets内容 |
 | 默认 Python 无法导入 Pillow | 1 | 不安装依赖，改用已确认包含 Pillow 的 `/opt/miniconda3/envs/cv/bin/python` 生成可视化 |
