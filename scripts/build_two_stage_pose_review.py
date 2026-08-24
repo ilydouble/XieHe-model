@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import importlib
 import json
 import math
 import platform
@@ -44,6 +45,19 @@ FIRST_COLOR = (235, 65, 185)
 FINAL_COLOR = (45, 195, 240)
 ROI_COLOR = (245, 190, 35)
 WHITE = (255, 255, 255)
+
+
+def ensure_numpy_checkpoint_compatibility() -> bool:
+    """Alias NumPy 2's pickle module path when loading its checkpoints on NumPy 1.x."""
+    try:
+        importlib.import_module("numpy._core.multiarray")
+        return False
+    except ModuleNotFoundError:
+        import numpy as np
+
+        sys.modules.setdefault("numpy._core", np.core)
+        sys.modules.setdefault("numpy._core.multiarray", np.core.multiarray)
+        return True
 
 
 def percentile(values: Sequence[float], fraction: float) -> float | None:
@@ -625,6 +639,9 @@ def make_ultralytics_predictor(
 ) -> Callable[[Path], TwoStageResult]:
     from ultralytics import YOLO
 
+    # Import Ultralytics/PyTorch before installing the pickle alias. Registering
+    # numpy._core before PyTorch initializes can crash older NumPy builds.
+    ensure_numpy_checkpoint_compatibility()
     model = YOLO(str(model_path))
     second_model = YOLO(str(second_model_path)) if second_model_path else None
 

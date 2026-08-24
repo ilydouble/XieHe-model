@@ -256,3 +256,5 @@
 | 更新ROI阶段记录时补丁仍引用已被修订的硬链接旧表述 | 1 | 补丁未产生修改；读取文件尾部后以当前多目录方案精确追加记录 |
 | 首次禁止Ultralytics写cache时把保存函数完全替换为空操作，内存字典缺`version` | 1 | 未写cache；第二次改为只补内存`version`但不落盘，框架成功加载2808/176份train/val |
 | 最终批量`git add`对已跟踪但处于忽略目录的`datasets/DATASET_README.md`打印拒绝提示 | 1 | 核实该文件实际已进入暂存区且4.7GB派生数据未被暂存；仅补暂存计划记录后直接提交既定4个文件 |
+| 阶段二`epoch*.pt`首次在cv环境加载时报缺少`numpy._core` | 1 | 检查字符串确认只引用`numpy._core.multiarray`；不升级环境，在两阶段评测入口增加NumPy 2→1.x局部pickle模块别名并补回归测试 |
+| 首版NumPy pickle别名在导入PyTorch前注册导致进程exit 139 | 1 | 独立复现确认是导入顺序；改为先导入Ultralytics/PyTorch，再在权重反序列化前注册别名，真实torch.load成功 |

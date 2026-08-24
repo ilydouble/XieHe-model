@@ -72,6 +72,11 @@ class TwoStagePoseReviewTest(unittest.TestCase):
         self.assertAlmostEqual(metrics["lower_mean_dy_px"], -5.0)
         self.assertAlmostEqual(metrics["span_bias_px"], 0.0)
 
+    def test_numpy_two_checkpoint_module_alias_is_available(self):
+        MODULE.ensure_numpy_checkpoint_compatibility()
+        self.assertIn("numpy._core", sys.modules)
+        self.assertIn("numpy._core.multiarray", sys.modules)
+
     def test_builds_review_package_with_timing_and_filters(self):
         configuration = {"conf": 0.25, "imgsz": 800, "roi_margin": 0.2, "roi_conf": 0.25, "device": "cpu", "warmup": 1}
         calls = []
