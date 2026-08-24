@@ -51,9 +51,9 @@ class TrainCornerRoiConfigTest(unittest.TestCase):
         help_text = subprocess.run(
             ["bash", str(shell), "--help"], check=True, capture_output=True, text=True
         ).stdout
-        self.assertIn("--best       最佳性能  : large,  150 轮, 800px, batch=4", help_text)
+        self.assertIn("--best       最佳性能  : large,  150 轮, 800px, batch=8", help_text)
         source = shell.read_text(encoding="utf-8")
-        self.assertIn('MODEL="l"; EPOCHS=150; IMGSZ=800; BATCH=4', source)
+        self.assertIn('MODEL="l"; EPOCHS=150; IMGSZ=800; BATCH=8', source)
 
 
 if __name__ == "__main__":

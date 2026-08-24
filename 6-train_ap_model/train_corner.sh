@@ -36,7 +36,7 @@ cat << EOF
   --quick      快速测试  : nano,   50  轮, 640px, batch=32
   --standard   标准训练  : small,  200 轮, 640px, batch=16
   --accurate   高精度    : medium, 300 轮, 800px, batch=8
-  --best       最佳性能  : large,  150 轮, 800px, batch=4
+  --best       最佳性能  : large,  150 轮, 800px, batch=8
 
 示例:
   $0 --standard
@@ -67,7 +67,7 @@ while [[ $# -gt 0 ]]; do
     --accurate)
       MODEL="m"; EPOCHS=200; IMGSZ=800; BATCH=8; NAME="high_accuracy"; shift ;;
     --best)
-      MODEL="l"; EPOCHS=150; IMGSZ=800; BATCH=4; NAME="best_performance"; shift ;;
+      MODEL="l"; EPOCHS=150; IMGSZ=800; BATCH=8; NAME="best_performance"; shift ;;
     --help) show_help; exit 0 ;;
     *) echo "❌ 未知参数: $1"; show_help; exit 1 ;;
   esac
