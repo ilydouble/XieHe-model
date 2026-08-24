@@ -232,6 +232,15 @@ def compare_samples(samples: Sequence[dict]) -> dict:
     }
 
 
+def add_hybrid_metrics(samples: Sequence[dict], summary: dict) -> None:
+    """Use y-order when it yields exactly 18 vertebrae, otherwise fall back to native classes."""
+    for model_key in ("old", "new"):
+        for sample in samples:
+            production = sample[model_key]["production"]
+            sample[model_key]["hybrid"] = production if production["predicted_vertebrae"] == 18 else sample[model_key]["native"]
+        summary[model_key]["hybrid"] = aggregate_mode(samples, model_key, "hybrid")
+
+
 def choose_font(size: int) -> ImageFont.ImageFont:
     for candidate in ("/System/Library/Fonts/Supplemental/Arial.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"):
         if Path(candidate).is_file():
@@ -403,6 +412,17 @@ def write_report(path: Path, manifest: dict) -> None:
 | 恰好18节图像 | {old['production']['exactly_18_images']}/{manifest['summary']['sample_count']} | {new['production']['exactly_18_images']}/{manifest['summary']['sample_count']} |
 | 自定义单图推理均值(ms) | {old['timing']['mean_ms']} | {new['timing']['mean_ms']} |
 
+## 低成本混合编号模拟
+
+当production y排序恰好得到18节时沿用；否则改用模型原始V0–V17类别。该策略不增加模型推理次数。
+
+| 指标 | 旧模型 | 新模型 |
+|---|---:|---:|
+| 平均误差(px) | {old['hybrid']['mean_error_px']} | {new['hybrid']['mean_error_px']} |
+| P90误差(px) | {old['hybrid']['p90_error_px']} | {new['hybrid']['p90_error_px']} |
+| PCK@20(含漏点失败) | {old['hybrid']['pck_20_all']:.2%} | {new['hybrid']['pck_20_all']:.2%} |
+| 72点召回 | {old['hybrid']['point_recall']:.2%} | {new['hybrid']['point_recall']:.2%} |
+
 新模型逐图改善{comparison['new_improved_images']}张、恶化{comparison['new_worsened_images']}张、近似持平{comparison['near_tie_images']}张；平均改善为{comparison['mean_improvement_px']} px（正数表示新模型更好）。
 
 {official_section}
@@ -410,6 +430,23 @@ def write_report(path: Path, manifest: dict) -> None:
 `打开对比页面.html`可按改善、恶化、完整率和误差逐图查看。绿色为GT，洋红为旧模型，青色为新模型。
 """
     path.write_text(content, encoding="utf-8")
+
+
+def package_file_hashes(output_dir: Path) -> dict[str, str]:
+    return {
+        str(path.relative_to(output_dir)): sha256_file(path)
+        for path in sorted(output_dir.rglob("*"))
+        if path.is_file() and path.name != "manifest.json"
+    }
+
+
+def finalize_package(output_dir: Path, manifest: dict) -> None:
+    add_hybrid_metrics(manifest["samples"], manifest["summary"])
+    data = {"summary": manifest["summary"], "comparison": manifest["comparison"], "samples": manifest["samples"]}
+    (output_dir / "review_data.js").write_text("window.CORNER_COMPARISON=" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n", encoding="utf-8")
+    write_report(output_dir / "对比报告.md", manifest)
+    manifest["package_files"] = package_file_hashes(output_dir)
+    (output_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def build_comparison(args: argparse.Namespace) -> dict:
@@ -458,11 +495,9 @@ def build_comparison(args: argparse.Namespace) -> dict:
         "image_dir": str(args.image_dir.resolve()), "label_dir": str(args.label_dir.resolve()),
         "summary": summary, "comparison": comparison, "official_test": official, "samples": samples,
     }
-    (args.output_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
-    (args.output_dir / "review_data.js").write_text("window.CORNER_COMPARISON=" + json.dumps({"summary": summary, "comparison": comparison, "samples": samples}, ensure_ascii=False, separators=(",", ":")) + ";\n", encoding="utf-8")
     (args.output_dir / "打开对比页面.html").write_text(HTML, encoding="utf-8")
     write_csv(args.output_dir / "逐图对比.csv", samples)
-    write_report(args.output_dir / "对比报告.md", manifest)
+    finalize_package(args.output_dir, manifest)
     return manifest
 
 

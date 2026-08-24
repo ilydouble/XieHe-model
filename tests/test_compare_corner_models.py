@@ -49,6 +49,15 @@ class CompareCornerModelsTest(unittest.TestCase):
         self.assertEqual(metrics["missing_vertebrae"], [1])
         self.assertEqual(metrics["mean_error_px"], 0.0)
 
+    def test_package_hashes_exclude_manifest(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "manifest.json").write_text("changing", encoding="utf-8")
+            (root / "report.txt").write_text("stable", encoding="utf-8")
+            hashes = MODULE.package_file_hashes(root)
+        self.assertEqual(set(hashes), {"report.txt"})
+        self.assertEqual(len(hashes["report.txt"]), 64)
+
 
 if __name__ == "__main__":
     unittest.main()
