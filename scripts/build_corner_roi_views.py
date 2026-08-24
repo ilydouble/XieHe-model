@@ -19,6 +19,9 @@ from PIL import Image
 
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
+BASE_CORNER_CLASS_IDS = frozenset(range(18))
+OPTIONAL_CORNER_CLASS_IDS = frozenset({18, 19})
+ALLOWED_CORNER_CLASS_IDS = BASE_CORNER_CLASS_IDS | OPTIONAL_CORNER_CLASS_IDS
 
 
 @dataclass(frozen=True)
@@ -62,7 +65,7 @@ def parse_corner_label(path: Path) -> tuple[CornerObject, ...]:
         if len(fields) != 17:
             raise ValueError(f"{path}:{line_number}: expected 17 fields, found {len(fields)}")
         class_value = float(fields[0])
-        if not class_value.is_integer() or not 0 <= class_value <= 17:
+        if not class_value.is_integer() or int(class_value) not in ALLOWED_CORNER_CLASS_IDS:
             raise ValueError(f"{path}:{line_number}: invalid class id {fields[0]}")
         class_id = int(class_value)
         if class_id in seen_classes:

@@ -120,6 +120,18 @@ class BuildCornerRoiViewsTest(unittest.TestCase):
         self.assertEqual(manifest["summary"]["skipped_existing_count"], 1)
         self.assertEqual((self.output / records[0]["output_image"]).stat().st_ino, inode)
 
+    def test_optional_l6_and_t13_classes_are_supported(self):
+        _, label_path = self.add_corner_sample("extra")
+        base_line = label_path.read_text(encoding="utf-8").splitlines()[0]
+        payload = base_line.split(maxsplit=1)[1]
+        label_path.write_text(f"18 {payload}\n19 {payload}\n", encoding="utf-8")
+        objects = MODULE.parse_corner_label(label_path)
+        self.assertEqual([item.class_id for item in objects], [18, 19])
+
+        label_path.write_text(f"20 {payload}\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "invalid class id 20"):
+            MODULE.parse_corner_label(label_path)
+
 
 if __name__ == "__main__":
     unittest.main()
