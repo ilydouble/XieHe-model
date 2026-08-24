@@ -551,6 +551,8 @@
 - 仓库内按mtime最新的Corner权重仍是`6-train_ap_model/runs/corner/best_performance-3/weights/best.pt`（2026-08-24 07:55:57）。权重内部只有18类V0–V17，旁边`args.yaml`为旧的200轮、batch4、imgsz800配置；它早于11:33完成的V18/V19恢复，不是本轮20类150轮模型。
 - 当前不能把该18类权重当作用户刚训练完成的20类模型，否则在已恢复class18/19的test上会天然无法预测两个新类，敏感性结论失真。继续搜索Downloads及项目其他位置的近期Corner权重；若仍不存在，需要用户把服务器`corner_20class_roi_mixed_v1/weights/best.pt`拷回。
 - 用户确认本轮目标正是这个18类`best_performance-3`，只判断输入分辨率敏感性。公平口径改为在当前250张test上过滤GT class18/19，只评V0–V17；6张含额外椎体的test图仍保留，但额外行不进入误差和召回分母。
+- 新增专用评测器以同一权重顺序运行800/1024，使用native class最佳置信候选；输出总体/PCK/逐类/来源/目标面积三等分/CPU耗时、逐图CSV、输入和包哈希及三组代表预览。3项回归测试通过。
+- 2张真实test冒烟中800与1024均完整匹配18类、144/144点检出；平均误差7.604→7.546 px，仅改善0.058 px，CPU模型时间约1.27倍。三栏预览视觉确认GT过滤、类别编号、坐标缩放和800/1024叠加正确；小样本不用于最终结论。
 - 新拷回的阶段二训练结果位于`6-train_ap_model/runs/pose_stage2/stage2_existing_roi_v1`，2026-08-24 09:23完成。`args.yaml`确认从`best_performance-5/best.pt`初始化，以`pose_data_stage2_existing_roi.yaml`只训练1404张已有GT安全ROI，imgsz=800、AdamW、lr0=0.0003、30轮、全模型微调；best权重SHA-256为`0e2c5f93...a09da`。
 - 目录实际保留`epoch0.pt`、`epoch10.pt`、`epoch20.pt`、`best.pt`和`last.pt`五个候选。训练自动val使用176张原始全图，只能作为健康监控；仓库说明明确要求先在原始val上通过完整“一阶段原图→预测ROI→独立二阶段权重→坐标回写”链路选检查点，然后才对175张test做一次最终评测，不能直接以自动`best.pt`命名决定。
 - 公平边界固定：一阶段始终使用`best_performance-5/best.pt`，imgsz=800、conf=0.25、ROI margin=0.20；先对176张val比较五个阶段二候选与共同首轮，固定最优检查点后再运行175张test并生成正式可视化包。test不参与检查点选择或ROI参数调节。
