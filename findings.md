@@ -551,3 +551,4 @@
 - 新拷回的阶段二训练结果位于`6-train_ap_model/runs/pose_stage2/stage2_existing_roi_v1`，2026-08-24 09:23完成。`args.yaml`确认从`best_performance-5/best.pt`初始化，以`pose_data_stage2_existing_roi.yaml`只训练1404张已有GT安全ROI，imgsz=800、AdamW、lr0=0.0003、30轮、全模型微调；best权重SHA-256为`0e2c5f93...a09da`。
 - 目录实际保留`epoch0.pt`、`epoch10.pt`、`epoch20.pt`、`best.pt`和`last.pt`五个候选。训练自动val使用176张原始全图，只能作为健康监控；仓库说明明确要求先在原始val上通过完整“一阶段原图→预测ROI→独立二阶段权重→坐标回写”链路选检查点，然后才对175张test做一次最终评测，不能直接以自动`best.pt`命名决定。
 - 公平边界固定：一阶段始终使用`best_performance-5/best.pt`，imgsz=800、conf=0.25、ROI margin=0.20；先对176张val比较五个阶段二候选与共同首轮，固定最优检查点后再运行175张test并生成正式可视化包。test不参与检查点选择或ROI参数调节。
+- 使用阶段二自动`best.pt`在一张旧来源和一张`eap_`原始val图上完成双权重真实冒烟：2/2均进入阶段二、无fallback；旧来源误差17.174→24.978 px，eap误差66.961→49.705 px，一改善一恶化。两张预览视觉确认黄色ROI、首轮与阶段二六点、独立权重加载和原图坐标回写正确，未见缩放、平移或左右点序BUG。
