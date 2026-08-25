@@ -457,3 +457,4 @@
 - 阶段208完成：XieHe-System工作区当前干净；实施文件固定为AP config/inference/service、目标测试与AP README。原18类和新20类权重均兼容native class；标准API仍只输出class0–17，V18/V19不参与补位。配置将显式固定Pose640、Corner800、候选conf0.25和最终conf0.5。
 - 阶段209代码已落地且`git diff --check`通过：移除Corner跨类IoU/y重编号，读取`boxes.cls`按标准class0–17每类最高置信输出；Pose/Corner分别显式640/800和候选conf0.25；服务层不再调用估算helper。已新增native class集成测试和无静默兜底服务测试，测试运行前先修正项目Python>=3.8下的测试上下文语法兼容性。
 - 目标测试首轮通过：`test_yolo_inference.py` 2/2、`test_measurement_pipeline.py` 5/5、`test_http_contract.py` 1/1。`compileall`仅因沙箱禁止在XieHe-System生成`__pycache__`报PermissionError；将用不落盘compile复核，不影响已实际导入执行的测试结果。
+- 阶段209–211完成：AP全测试发现10/10通过，5个变更Python文件纯内存compile通过。使用最新版真实Pose与20类Corner权重各跑1张原图：Pose返回CR/CL/IR/IL/SR/SL完整6点；Corner返回严格C7、T1–T12、L1–L5共18节，class ID连续0–17且无非标准类。进入最终diff/提交检查。
