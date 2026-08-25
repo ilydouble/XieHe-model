@@ -218,6 +218,21 @@ def automatic_interpretation(old: dict, new: dict) -> str:
     return "V0–V17没有形成一致提高，不能仅因支持新增类别就替换旧模型。"
 
 
+def build_interpretation(old: dict, new: dict, comparison: dict, sources: dict, extra: dict) -> str:
+    parts = [automatic_interpretation(old, new)]
+    confidence_interval = comparison["mean_image_improvement_95ci_px"]
+    worsened_sources = [name for name, values in sources.items() if values["mean_image_improvement_px"] < 0]
+    if confidence_interval[0] <= 0 <= confidence_interval[1]:
+        parts.append("但逐图平均改善的95% bootstrap区间跨0，收益不够稳定。")
+    if worsened_sources:
+        parts.append(f"改善主要由部分来源驱动，{', '.join(worsened_sources)}的平均误差反而上升。")
+    if extra["detected_vertebrae"] < extra["truth_vertebrae"]:
+        parts.append(
+            f"新增V18/V19只检出{extra['detected_vertebrae']}/{extra['truth_vertebrae']}个，20类能力尚未达到可用水平。"
+        )
+    return "".join(parts)
+
+
 def write_report(path: Path, manifest: dict) -> None:
     old = manifest["base_summary"]["old_18class"]
     new = manifest["base_summary"]["new_20class"]
@@ -392,6 +407,8 @@ def build_comparison(args: argparse.Namespace) -> dict:
             "preview": relative,
         })
 
+    source_analysis = aggregate_sources(samples)
+    interpretation = build_interpretation(old_summary, new_summary, comparison, source_analysis, extra_summary)
     manifest = {
         "schema_version": 1,
         "models": {
@@ -404,8 +421,8 @@ def build_comparison(args: argparse.Namespace) -> dict:
         "base_comparison": comparison,
         "extra_summary": extra_summary,
         "new_full_20class_summary": aggregate(samples, "new_full"),
-        "source_analysis": aggregate_sources(samples),
-        "automatic_interpretation": automatic_interpretation(old_summary, new_summary),
+        "source_analysis": source_analysis,
+        "automatic_interpretation": interpretation,
         "representatives": representatives,
         "samples": samples,
     }

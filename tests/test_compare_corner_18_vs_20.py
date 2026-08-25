@@ -71,6 +71,17 @@ class CompareCorner18Vs20Test(unittest.TestCase):
         self.assertEqual(summary["false_positive_vertebrae"], 1)
         self.assertEqual(summary["precision"], 0.5)
 
+    def test_combined_interpretation_flags_unstable_sources_and_rare_recall(self):
+        old = {"mean_error_px": 10.0, "point_recall": 0.98, "pck_20_all": 0.9}
+        new = {"mean_error_px": 9.0, "point_recall": 0.981, "pck_20_all": 0.91}
+        comparison = {"mean_image_improvement_95ci_px": [-0.2, 1.5]}
+        sources = {"eap": {"mean_image_improvement_px": 1.0}, "legacy": {"mean_image_improvement_px": -0.2}}
+        extra = {"detected_vertebrae": 1, "truth_vertebrae": 6}
+        value = MODULE.build_interpretation(old, new, comparison, sources, extra)
+        self.assertIn("区间跨0", value)
+        self.assertIn("legacy", value)
+        self.assertIn("1/6", value)
+
 
 if __name__ == "__main__":
     unittest.main()
