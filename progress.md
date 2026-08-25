@@ -455,3 +455,4 @@
 
 - 用户已明确授权直接修正正式线上代码。新增阶段208–212：只改AP推理类别选择、显式推理尺寸/阈值和Pose失败语义；不加入ROI、黑边裁剪或二阶段，不复制/替换部署权重。完成目标测试与真实权重冒烟后，在XieHe-System仓库创建一个范围明确的提交。
 - 阶段208完成：XieHe-System工作区当前干净；实施文件固定为AP config/inference/service、目标测试与AP README。原18类和新20类权重均兼容native class；标准API仍只输出class0–17，V18/V19不参与补位。配置将显式固定Pose640、Corner800、候选conf0.25和最终conf0.5。
+- 阶段209代码已落地且`git diff --check`通过：移除Corner跨类IoU/y重编号，读取`boxes.cls`按标准class0–17每类最高置信输出；Pose/Corner分别显式640/800和候选conf0.25；服务层不再调用估算helper。已新增native class集成测试和无静默兜底服务测试，测试运行前先修正项目Python>=3.8下的测试上下文语法兼容性。
