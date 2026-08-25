@@ -210,6 +210,11 @@
 - [complete] 195. 在修正后的250张Corner test上重跑V0–V17公平对比，并汇总Pose 175张正式线上链路指标
 - [complete] 196. 编写Pose与Pose Corner最新版综合报告，明确V18/V19仅为辅助标签且不作为Corner主选择标准
 - [complete] 197. 复核报告数字、模型/数据/评测制品引用和工作区边界，提交本轮文档与规划记录
+- [in_progress] 198. 定位E盘spine-data目标、Pose现有175张包和Corner修正后250张评测制品，冻结本轮可视化包结构
+- [pending] 199. 复用或扩展现有评测工具生成Corner 250张全量三栏预览、浏览页、CSV、报告和哈希manifest
+- [pending] 200. 整理Pose 175张全量包与Corner 250张全量包，在本地完成图像/页面/指标和哈希验收
+- [pending] 201. 将双模型人工复核总包复制到E盘spine-data独立目录，清理仅属于新包的AppleDouble旁车
+- [pending] 202. 对E盘副本逐文件哈希、预览解码、样本数和页面资源复验，提交工具/记录并交付路径
 
 ## 遇到的错误
 
