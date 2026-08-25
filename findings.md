@@ -654,3 +654,4 @@
 - 新集成测试构造class17位于class0上方、class5重复且class18高置信的反常候选，输出仍正确保持C7/T5/L5、选择高置信class5并过滤class18，证明不再受y顺序或额外类别影响。服务测试证明Pose为空时raw pose保持空，CA/Pelvic/Sacral/TS不被估算点生成。
 - 最新真实权重冒烟确认代码与权重输出头兼容：Pose最新版在独立test首图完整6点；20类Corner最新版在独立test首图正确输出标准18节，class18/19不会泄漏到现有前端/Cobb契约。既有250张同逻辑native800正式结果14.135 px可作为全量回归基线。
 - 线上仓库实现已独立提交为`64e9f4ad`，没有复制模型权重、生成数据或修改前端/backend。部署仍需由服务器把最新版Pose/Corner权重放到既有`model/ap/weights/pose.pt`与`pose_corner.pt`路径，并核对SHA。
+- 最终终验：XieHe-System状态为空，AP unittest discover共10项全部通过；变更文件语法检查5/5通过。实现只改变推理后处理和失败语义，不改变HTTP路由/响应主结构、坐标系、左右点序或模型权重路径。
