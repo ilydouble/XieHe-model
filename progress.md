@@ -454,3 +454,4 @@
 ## 2026-08-25 XieHe-System线上后处理修正
 
 - 用户已明确授权直接修正正式线上代码。新增阶段208–212：只改AP推理类别选择、显式推理尺寸/阈值和Pose失败语义；不加入ROI、黑边裁剪或二阶段，不复制/替换部署权重。完成目标测试与真实权重冒烟后，在XieHe-System仓库创建一个范围明确的提交。
+- 阶段208完成：XieHe-System工作区当前干净；实施文件固定为AP config/inference/service、目标测试与AP README。原18类和新20类权重均兼容native class；标准API仍只输出class0–17，V18/V19不参与补位。配置将显式固定Pose640、Corner800、候选conf0.25和最终conf0.5。
