@@ -35,6 +35,10 @@ def bootstrap_mean_ci(values: Sequence[float], seed: int = 20260825, iterations:
     return [round(means[round((len(means) - 1) * fraction)], 4) for fraction in (0.025, 0.975)]
 
 
+def format_percent(value: float | None) -> str:
+    return "N/A" if value is None else f"{value:.2%}"
+
+
 def aggregate(samples: Sequence[dict], sample_key: str) -> dict:
     adapted = [{"model": {"native": sample[sample_key]}} for sample in samples]
     return corner_eval.aggregate_mode(adapted, "model", "native")
@@ -56,6 +60,60 @@ def aggregate_sources(samples: Sequence[dict]) -> dict:
             "worsened_images": sum(value < -0.05 for value in deltas),
         }
     return output
+
+
+def summarize_extra_predictions(samples: Sequence[dict]) -> dict:
+    rare_samples = [sample for sample in samples if sample["new_extra"] is not None]
+    rare_summary = aggregate(rare_samples, "new_extra")
+    per_class = {}
+    for class_id, semantic in ((18, "V18_L6"), (19, "V19_T13")):
+        truth_count = sum(class_id in sample["extra_truth_classes"] for sample in samples)
+        predicted_count = sum(class_id in sample["new_extra_predicted_classes"] for sample in samples)
+        matched_count = sum(
+            class_id in sample["extra_truth_classes"] and class_id in sample["new_extra_predicted_classes"]
+            for sample in samples
+        )
+        rows = [
+            row
+            for sample in rare_samples
+            for row in sample["new_extra"]["point_rows"]
+            if row["class_id"] == class_id and row["visible"]
+        ]
+        errors = [row["distance_px"] for row in rows if row["distance_px"] is not None]
+        per_class[semantic] = {
+            "truth_vertebrae": truth_count,
+            "predicted_vertebrae": predicted_count,
+            "detected_vertebrae": matched_count,
+            "false_positive_vertebrae": predicted_count - matched_count,
+            "precision": matched_count / predicted_count if predicted_count else None,
+            "visible_points": len(rows),
+            "point_recall": len(errors) / len(rows) if rows else None,
+            "mean_error_px": None if not errors else round(statistics.fmean(errors), 3),
+        }
+    truth_total = sum(len(sample["extra_truth_classes"]) for sample in samples)
+    predicted_total = sum(len(sample["new_extra_predicted_classes"]) for sample in samples)
+    matched_total = sum(
+        len(set(sample["extra_truth_classes"]) & set(sample["new_extra_predicted_classes"]))
+        for sample in samples
+    )
+    return {
+        "images": len(rare_samples),
+        "truth_vertebrae": truth_total,
+        "predicted_vertebrae": predicted_total,
+        "detected_vertebrae": matched_total,
+        "false_positive_vertebrae": predicted_total - matched_total,
+        "false_positive_images": sum(
+            bool(set(sample["new_extra_predicted_classes"]) - set(sample["extra_truth_classes"]))
+            for sample in samples
+        ),
+        "precision": matched_total / predicted_total if predicted_total else None,
+        "visible_points": rare_summary["visible_points"],
+        "detected_points": rare_summary["detected_points"],
+        "point_recall": rare_summary["point_recall"],
+        "mean_error_px": rare_summary["mean_error_px"],
+        "pck_20_all": rare_summary["pck_20_all"],
+        "per_class": per_class,
+    }
 
 
 def select_representatives(samples: Sequence[dict], count_each: int = 4) -> list[dict]:
@@ -176,7 +234,7 @@ def write_report(path: Path, manifest: dict) -> None:
         for name, values in manifest["source_analysis"].items()
     )
     rare_rows = "\n".join(
-        f"| {name} | {values['truth_vertebrae']} | {values['detected_vertebrae']} | {values['point_recall']:.2%} | {values['mean_error_px']} |"
+        f"| {name} | {values['truth_vertebrae']} | {values['predicted_vertebrae']} | {values['detected_vertebrae']} | {values['false_positive_vertebrae']} | {format_percent(values['precision'])} | {format_percent(values['point_recall'])} | {values['mean_error_px']} |"
         for name, values in extra["per_class"].items()
     )
     report = f"""# 最新Corner 20类模型与上一版18类模型对比
@@ -210,11 +268,11 @@ def write_report(path: Path, manifest: dict) -> None:
 
 test中只有{extra['images']}张图、{extra['truth_vertebrae']}个额外椎体、{extra['visible_points']}个角点，样本很少，因此这里只验证“是否学会”，不能据此判断稳定泛化。
 
-| 类别 | GT椎体 | 检出椎体 | 点召回 | 已检出点平均误差(px) |
-|---|---:|---:|---:|---:|
+| 类别 | GT椎体 | 预测椎体 | 正确检出 | 假阳性 | 精确率 | 点召回 | 已检出点平均误差(px) |
+|---|---:|---:|---:|---:|---:|---:|---:|
 {rare_rows}
 
-合计：新模型检出{extra['detected_vertebrae']}/{extra['truth_vertebrae']}个额外椎体，角点召回{extra['point_recall']:.2%}，已检出点平均误差{extra['mean_error_px']} px。旧模型输出头只有18类，结构上不支持V18/V19，不把它记成旧模型性能下降。
+合计：新模型正确检出{extra['detected_vertebrae']}/{extra['truth_vertebrae']}个额外椎体，但总共输出{extra['predicted_vertebrae']}个额外类别目标，其中假阳性{extra['false_positive_vertebrae']}个、涉及{extra['false_positive_images']}张图，额外类别精确率{format_percent(extra['precision'])}；角点召回{format_percent(extra['point_recall'])}，已检出点平均误差{extra['mean_error_px']} px。旧模型输出头只有18类，结构上不支持V18/V19，不把它记成旧模型性能下降。
 
 ## 按来源
 
@@ -280,6 +338,7 @@ def build_comparison(args: argparse.Namespace) -> dict:
             "image_sha256": corner_eval.sha256_file(image_path),
             "label_sha256": corner_eval.sha256_file(label_path),
             "extra_truth_classes": sorted(extra_truth),
+            "new_extra_predicted_classes": sorted(set(new_assigned) & EXTRA_CLASS_IDS),
             "old_base": old_base,
             "new_base": new_base,
             "new_extra": new_extra,
@@ -299,38 +358,7 @@ def build_comparison(args: argparse.Namespace) -> dict:
     new_summary = aggregate(samples, "new_base")
     old_summary["timing"] = old_timing
     new_summary["timing"] = new_timing
-    extra_aggregate = aggregate(rare_samples, "new_extra")
-    per_class = {}
-    for class_id, semantic in ((18, "V18_L6"), (19, "V19_T13")):
-        rows = []
-        vertebrae = 0
-        detected = 0
-        for sample in rare_samples:
-            metric = sample["new_extra"]
-            class_rows = [row for row in metric["point_rows"] if row["class_id"] == class_id and row["visible"]]
-            if class_rows:
-                vertebrae += 1
-                detected += any(row["detected"] for row in class_rows)
-                rows.extend(class_rows)
-        errors = [row["distance_px"] for row in rows if row["distance_px"] is not None]
-        per_class[semantic] = {
-            "truth_vertebrae": vertebrae,
-            "detected_vertebrae": detected,
-            "visible_points": len(rows),
-            "point_recall": len(errors) / len(rows) if rows else None,
-            "mean_error_px": None if not errors else round(statistics.fmean(errors), 3),
-        }
-    extra_summary = {
-        "images": len(rare_samples),
-        "truth_vertebrae": sum(metric["truth_vertebrae"] for metric in (sample["new_extra"] for sample in rare_samples)),
-        "detected_vertebrae": sum(metric["matched_vertebrae"] for metric in (sample["new_extra"] for sample in rare_samples)),
-        "visible_points": extra_aggregate["visible_points"],
-        "detected_points": extra_aggregate["detected_points"],
-        "point_recall": extra_aggregate["point_recall"],
-        "mean_error_px": extra_aggregate["mean_error_px"],
-        "pck_20_all": extra_aggregate["pck_20_all"],
-        "per_class": per_class,
-    }
+    extra_summary = summarize_extra_predictions(samples)
     deltas = [sample["base_improvement_px"] for sample in samples]
     comparison = {
         "pooled_mean_error_improvement_px": round(old_summary["mean_error_px"] - new_summary["mean_error_px"], 4),

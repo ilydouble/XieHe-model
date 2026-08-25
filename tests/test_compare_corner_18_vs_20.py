@@ -41,6 +41,10 @@ class CompareCorner18Vs20Test(unittest.TestCase):
     def test_bootstrap_constant_has_exact_interval(self):
         self.assertEqual(MODULE.bootstrap_mean_ci([2.5] * 10, iterations=50), [2.5, 2.5])
 
+    def test_missing_rare_class_formats_as_not_available(self):
+        self.assertEqual(MODULE.format_percent(None), "N/A")
+        self.assertEqual(MODULE.format_percent(0.5), "50.00%")
+
     def test_representatives_always_include_extra_cases(self):
         samples = [
             {"filename": f"{index}.jpg", "base_improvement_px": float(index), "extra_truth_classes": [18] if index == 3 else []}
@@ -54,6 +58,18 @@ class CompareCorner18Vs20Test(unittest.TestCase):
         old = {"mean_error_px": 10.0, "point_recall": 0.98, "pck_20_all": 0.9}
         new = {"mean_error_px": 9.0, "point_recall": 0.981, "pck_20_all": 0.91}
         self.assertIn("实质提高", MODULE.automatic_interpretation(old, new))
+
+    def test_extra_summary_counts_false_positive_classes(self):
+        metric = MODULE.corner_eval.evaluate_assignments({18: obj(18)}, {18: obj(18), 19: obj(19)}, 100, 100)
+        samples = [{
+            "extra_truth_classes": [18],
+            "new_extra_predicted_classes": [18, 19],
+            "new_extra": metric,
+        }]
+        summary = MODULE.summarize_extra_predictions(samples)
+        self.assertEqual(summary["detected_vertebrae"], 1)
+        self.assertEqual(summary["false_positive_vertebrae"], 1)
+        self.assertEqual(summary["precision"], 0.5)
 
 
 if __name__ == "__main__":
