@@ -71,6 +71,9 @@ example/*
 *.DS_Store
 *.pt
 *.csv
+*.jpg
+*.jpeg
+
 
 datasets
 5-optimize
