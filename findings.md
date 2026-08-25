@@ -629,3 +629,6 @@
 
 - 本轮需分别审计六点Pose与Pose Corner，不能把“后处理”统一视为应删除。Pose的置信度与几何合法性拒绝可能仍是安全门；Corner若仍采用全局纵向排序并连续重编号，则与最新20类语义存在潜在硬冲突，尤其V19=T13的解剖位置在V12与V13之间而非类别序尾部。
 - 审计只读，不修改线上系统。最终决定必须绑定真实代码行、当前模型输出契约和175/250张独立test证据，避免仅凭历史记忆判断。
+- 当前真实文件`XieHe-System/model/ap/infrastructure/yolo_inference.py`确认：Pose仍直接对传入原图调用`model.predict(img, verbose=False)`，没有裁黑边、ROI、显式imgsz或显式predict conf；随后选box置信度最高且至少0.5的单个实例，按模型6点原始顺序映射CR/CL/IR/IL/SR/SL，并在横向跨度不足原宽10%或纵向跨度不足原高20%时整组丢弃。这里没有坐标拉伸或经验偏移修正。
+- 同一线上文件确认Corner仍完全忽略模型原生class ID：先按box conf≥0.5筛选，再自行做IoU>0.3去重，按四角平均y从上到下排序，最后连续重编号为C7、T1–T12、L1–L5，超过rank17写成V18/V19等。该逻辑不是轻微清洗，而是覆盖模型分类语义的核心后处理。
+- 配置仍固定`CONF_THRESHOLD=0.5`，权重路径为工作副本内`model/ap/weights/pose.pt`和`pose_corner.pt`；是否正是本地最新权重仍需核对部署文件/哈希。领域层只消费C7/T1…名字生成Cobb等测量，未在已读部分再次调整模型坐标。
