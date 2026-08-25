@@ -460,3 +460,4 @@
 - 阶段209–211完成：AP全测试发现10/10通过，5个变更Python文件纯内存compile通过。使用最新版真实Pose与20类Corner权重各跑1张原图：Pose返回CR/CL/IR/IL/SR/SL完整6点；Corner返回严格C7、T1–T12、L1–L5共18节，class ID连续0–17且无非标准类。进入最终diff/提交检查。
 - XieHe-System范围检查确认只暂存6个AP文件，cached diff check通过；已按仓库规则创建单一实现提交`64e9f4ad Fix AP inference postprocessing`，内容为198行新增、45行删除。等待提交后状态和测试终验后完成阶段212。
 - 阶段212完成：提交后XieHe-System工作区干净；再次运行AP全测试10/10通过，5个变更Python文件纯内存compile通过。线上代码修正完成，部署侧剩余动作只有放置/核对最新版权重并重启或重建AP服务，不属于本地代码提交。
+- 用户指出Pose训练尺寸为800并要求修正。已将线上`POSE_IMGSZ`由兼容旧行为的640改为800，同步README并增加显式参数测试；AP测试11/11通过，最新版Pose真实权重在800冒烟完整输出6点。XieHe-System提交为`70c7794c Use 800 input for AP pose inference`。
