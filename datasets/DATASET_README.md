@@ -1,15 +1,15 @@
 # 脊柱 AP 正位训练数据集说明
 
-更新日期：2026-08-22
+更新日期：2026-08-25
 
-本文档描述 `datasets/` 下当前实际参与训练的两套活动数据：六点姿态数据集 `pose_data` 和椎体四角点数据集 `pose_corner_data`。文中的数量和质量统计均基于 2026-08-12 患者级重分后的活动文件重新计算，不沿用旧报告中的历史数量。
+本文档描述 `datasets/` 下当前实际参与训练的两套活动数据：六点姿态数据集 `pose_data` 和椎体四角点数据集 `pose_corner_data`。数据数量与质量统计基于 2026-08-12 患者级重分后的活动文件重新计算；Corner类别统计包含2026-08-24恢复的V18/L6与V19/T13，模型状态和独立test结论更新至2026-08-25，不沿用旧报告中的历史数量或旧权重结论。
 
 ## 1. 当前数据概览
 
 | 数据集 | 任务 | 总数 | train | val | test | 训练/验证/测试比例 | 磁盘占用 |
 |---|---|---:|---:|---:|---:|---:|---:|
 | `pose_data` | 整体脊柱 6 个解剖关键点 | 1,755 | 1,404 | 176 | 175 | 80.00% / 10.03% / 9.97% | 约 8.8 GB |
-| `pose_corner_data` | C7–L5 共 18 节椎体的 4 个角点 | 2,499 | 1,999 | 250 | 250 | 79.99% / 10.00% / 10.00% | 约 14 GB |
+| `pose_corner_data` | V0–V17基础18节及可选L6/T13的4个角点（20类契约） | 2,499 | 1,999 | 250 | 250 | 79.99% / 10.00% / 10.00% | 约 14 GB |
 
 两套数据彼此是独立训练任务，但当前有 1,668 个同名图像文件同时用于两个任务：其中 995 个为 `eap_` 人工数据，673 个为旧数据或服务器数据。同一病例服务于两个不同模型不属于单个数据集内部重复；评估时仍应分别看各任务自己的 split。
 
@@ -228,13 +228,22 @@ train/3557232367__CR_TSPINE_20210927_slice0000.png
 
 对应训练入口为 `6-train_ap_model/train_pose.py` 和 `6-train_ap_model/train_corner.py`。
 
-二阶段低成本精修默认不生成新数据，直接引用已有`pose_roi_views`的1404张train ROI，从一阶段`best_performance-5/best.pt`初始化独立权重，以30轮、AdamW `lr0=0.0003`全模型微调，并每10轮保存检查点。YAML中的原始val只用于训练健康监控；候选权重必须在原始176张val上通过“一阶段原图→ROI→二阶段→坐标回写”完整链路比较后选择，不能只依赖自动`best.pt`。若低成本方案仍受GT安全ROI与预测ROI域差异影响，再显式使用`pose_data_stage2_roi.yaml`运行预测ROI对照实验。完整命令和验收门槛见`../docs/pose_stage2_finetuning.md`。
+### 7.1 当前已训练模型与独立test结论
+
+| 任务 | 当前候选权重 | 实际训练配置 | 相对上一版的独立test结论 |
+|---|---|---|---|
+| 六点Pose | `6-train_ap_model/runs/pose/best_performance-5/weights/best.pt` | YOLO11l-pose，原图+ROI，200轮，batch4，imgsz800，低增强 | 175张线上640单阶段：平均误差39.739→33.742 px，改善15.1%；选择最新版单阶段 |
+| Pose Corner | `6-train_ap_model/runs/corner/corner_20class_roi_mixed_v1-2/weights/best.pt` | YOLO11l-pose，原图+ROI，20类，150轮，实际batch4，imgsz800，低增强 | 修正标签后的250张只评V0–V17：14.945→14.135 px，改善5.42%；完整图231→239 |
+
+Corner当前主业务评价仍是V0–V17。V18/L6与V19/T13用于避免真实额外椎体继续作为未标注背景，并作为辅助监督保留；它们的test仅各3例，召回不作为当前Corner权重的淘汰标准。最新Corner在V0–V17上属于总体小幅提升，但不同来源并不一致，完整边界见`../docs/pose_and_pose_corner_latest_comprehensive_report_20260825.md`。
+
+二阶段低成本精修实验使用已有`pose_roi_views`的1404张train ROI，从一阶段`best_performance-5/best.pt`初始化独立权重，以30轮、AdamW `lr0=0.0003`全模型微调。该实验已经在175张独立test上完成：一阶段平均误差29.850 px，二阶段best为38.800 px，且推理耗时近乎翻倍。因此当前不采用二阶段，相关YAML和脚本只保留用于复现或后续预测ROI对照实验。详细结果见`../docs/pose_stage2_best_evaluation_20260824.md`。
 
 `pose_data_roi_mixed.yaml`的train同时引用原始1404张train和`pose_roi_views`的1404张派生ROI视图，因此训练样本数为2808；val/test仍只引用原始176/175张，患者分区没有改变。ROI视图由原bbox与六点并集扩展20%上下文，并加入确定性的5%平移和10%尺度扰动后生成；原始`pose_data`没有被覆盖。推荐命令：
 
 ```bash
 cd 6-train_ap_model
-./train_pose.sh --roi-mixed --imgsz 800 --name roi_mixed_v1
+./train_pose.sh --best --roi-mixed --device 0 --name best_performance_roi_mixed
 ```
 
 该快捷入口同时选择`roi_low`低增强预设，避免mosaic、mixup、copy-paste、强scale等增强干扰ROI实验归因。该数据用于训练同一个模型兼容原图第一次定位与ROI第二次精定位；最终效果必须在原始test图上通过完整线上流程评估，不能直接用GT裁剪后的test替代。
@@ -250,10 +259,10 @@ cd /Users/liruirui/Documents/code/spine/Model
 
 ```bash
 cd 6-train_ap_model
-./train_corner.sh --roi-mixed --imgsz 800 --name corner_roi_mixed_v1
+./train_corner.sh --best --roi-mixed --batch 4 --device 0 --name corner_20class_roi_mixed_v1
 ```
 
-该快捷入口使用`roi_low`低增强预设。硬链接只在当前文件系统内节省数据块；若要上传训练服务器，应使用能保留硬链接的tar归档，或明确选择解引用并接受上传体积增加。Corner正式效果必须在原始test图上分别评估原图直推和“六点模型产生ROI→Corner→坐标回写”的完整流程，重点检查18节完整率、C7/L5贴边和编号整体错位。
+该快捷入口使用`roi_low`低增强预设。命令显式指定batch4是为了复现当前权重的实际参数；若显存验证允许，可把batch8作为新的独立实验，不能与当前结果混称同一run。硬链接只在当前文件系统内节省数据块；若要上传训练服务器，应使用能保留硬链接的tar归档，或明确选择解引用并接受上传体积增加。Corner正式效果必须在原始test图上分别评估原图直推和“六点模型产生ROI→Corner→坐标回写”的完整流程，主指标检查V0–V17完整率、C7/L5贴边和编号整体错位；V18/V19仅单列观察。
 
 `datasets/pose_data/dataset.yaml` 当前与六点任务一致，可以作为数据目录内的参考配置。需要特别注意：`datasets/pose_corner_data/dataset.yaml` 是历史遗留错误文件，仍错误指向 `../pose_data`，并写成 1 类、6 关键点；它没有被当前 `train_corner.py` 使用，不得拿它直接启动角点训练。角点训练应使用上面的权威`corner_data.yaml`或受控实验`corner_data_roi_mixed.yaml`，直到该历史文件被另行同步修正。
 
@@ -268,4 +277,8 @@ cd 6-train_ap_model
 - `../docs/duplicate_review_training_increment_analysis.md`：284 组人工重复核对结果的增量导入。
 - `../docs/dataset_leakage_audit_20260812.md`：精确图像和患者级泄露审计、最终重分及审计边界。
 - `../docs/corner_bbox_normalization_report_20260812.md`：角点 bbox 统一、备份哈希及全量验证。
+- `../docs/corner_v18_v19_history_audit_20260824.md`：V18/L6与V19/T13历史过滤、恢复范围和类别语义。
+- `../docs/corner_test_v0_label_fix_20260825.md`：一张Corner test退化V0标签的修复证据。
+- `../docs/pose_online_vs_latest_comparison_20260824.md`：六点Pose上一版与最新版175张线上链路对比。
+- `../docs/pose_and_pose_corner_latest_comprehensive_report_20260825.md`：两套最新版的数据、训练和独立test综合结论。
 - `../1-data_report/DATA_ANALYSIS_REPORT.md`：2025 年历史数据与历史模型结果；其中旧数量不能代表当前活动数据。
