@@ -651,3 +651,4 @@
 - 用户授权直接修改线上代码。实施契约固定为：Pose原图单阶段640、候选conf0.25/最终box conf0.5和跨度安全门保留；Corner原图单阶段800、候选conf0.25/最终conf0.5，每个native class保留最高置信，标准输出仅class0–17；class18/19不补位、不改写V0–V17。Pose拒绝不再自动调用Corner固定几何估算生成测量。
 - XieHe-System开始实施前`git status --short`为空，无需绕开用户未提交修改。现有测试仍直接验证旧估算helper，但没有验证服务会自动调用；将保留helper为显式工具兼容既有测试，同时新增服务契约证明线上失败时不再自动兜底。
 - 当前实现不再读取`boxes.xyxy`或计算y中心，类别完全来自`boxes.cls`；同类重复按box confidence选最高，class18/19在标准输出选择函数中被过滤。原估算helper仍保留为显式工具，但线上`measure_image`已断开调用。
+- 新集成测试构造class17位于class0上方、class5重复且class18高置信的反常候选，输出仍正确保持C7/T5/L5、选择高置信class5并过滤class18，证明不再受y顺序或额外类别影响。服务测试证明Pose为空时raw pose保持空，CA/Pelvic/Sacral/TS不被估算点生成。
