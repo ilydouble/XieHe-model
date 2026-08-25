@@ -64,7 +64,13 @@ def aggregate_sources(samples: Sequence[dict]) -> dict:
 
 def summarize_extra_predictions(samples: Sequence[dict]) -> dict:
     rare_samples = [sample for sample in samples if sample["new_extra"] is not None]
-    rare_summary = aggregate(rare_samples, "new_extra")
+    rare_summary = aggregate(rare_samples, "new_extra") if rare_samples else {
+        "visible_points": 0,
+        "detected_points": 0,
+        "point_recall": None,
+        "mean_error_px": None,
+        "pck_20_all": None,
+    }
     per_class = {}
     for class_id, semantic in ((18, "V18_L6"), (19, "V19_T13")):
         truth_count = sum(class_id in sample["extra_truth_classes"] for sample in samples)
@@ -180,6 +186,7 @@ def write_csv(path: Path, samples: Sequence[dict]) -> None:
         "filename", "source", "extra_truth_classes", "old_base_error_px", "new_base_error_px",
         "base_improvement_px", "old_base_recall", "new_base_recall", "old_base_predicted",
         "new_base_predicted", "new_extra_detected_points", "new_extra_visible_points", "old_ms", "new_ms",
+        "preview",
     )
     with path.open("w", encoding="utf-8-sig", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields)
@@ -201,7 +208,52 @@ def write_csv(path: Path, samples: Sequence[dict]) -> None:
                 "new_extra_visible_points": None if extra is None else extra["visible_points"],
                 "old_ms": sample["old_ms"],
                 "new_ms": sample["new_ms"],
+                "preview": sample.get("preview", ""),
             })
+
+
+REVIEW_HTML = r'''<!doctype html><meta charset="utf-8"><title>Corner 18类与20类全量人工对比</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#11151b;color:#edf2f7;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.top{position:sticky;top:0;z-index:3;background:#18202bee;padding:12px 18px;border-bottom:1px solid #34404f}.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}button,select,input,textarea{background:#202b38;color:#fff;border:1px solid #46566a;border-radius:7px;padding:7px 9px}button.active{border-color:#63b3ed;background:#174d72}.stats{color:#afc1d8;margin-top:7px}.main{max-width:1900px;margin:auto;padding:15px}.card{background:#1a222d;border:1px solid #34404f;border-radius:10px;padding:14px}.preview{width:100%;display:block;background:#000}.meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin:10px 0}.metric{background:#111821;padding:9px;border-radius:7px}.good{color:#65e097}.bad{color:#ff8080}.warn{color:#ffcc66}.notes{width:100%;min-height:58px;margin-top:9px}.foot{display:flex;justify-content:space-between;margin-top:10px}.hint{color:#95a6bb;font-size:13px}</style>
+<div class="top"><div class="row"><b>Corner：上一版18类 vs 最新20类（主评V0–V17）</b><input id="search" placeholder="搜索文件名"><select id="source"><option value="all">全部来源</option><option value="eap">eap</option><option value="legacy_numeric">历史数字</option><option value="new_site_code">新站点编码</option><option value="server_uid">服务器UID</option></select><select id="status"><option value="all">全部样本</option><option value="improved">最新版改善</option><option value="worsened">最新版恶化</option><option value="old_incomplete">旧版V0–V17不完整</option><option value="new_incomplete">新版V0–V17不完整</option><option value="extra">含V18/V19真值</option><option value="todo">仅未人工判断</option></select><select id="sort"><option value="improvement_asc">恶化最多优先</option><option value="improvement_desc">改善最多优先</option><option value="new_error_desc">新版误差最大</option><option value="filename">文件名</option></select><button id="prev">←</button><button id="next">→</button><input id="jump" type="number" min="1" style="width:80px"><button id="export">导出人工结果CSV</button></div><div class="stats" id="stats"></div></div>
+<main class="main"><section class="card"><h2 id="title"></h2><img class="preview" id="preview"><div class="meta" id="meta"></div><div class="row"><b>人工判断：</b><button data-result="new_better">1 最新版更好</button><button data-result="old_better">2 上一版更好</button><button data-result="both_ok">3 两者都可用</button><button data-result="both_bad">4 两者都有问题</button><button data-result="uncertain">5 不确定</button><button data-result="">清除</button></div><textarea id="notes" class="notes" placeholder="记录错位节段、角点偏差、漏检或其他观察"></textarea><div class="foot"><span class="hint">左：GT；中：上一版18类；右：最新20类。绿色GT、洋红旧版、青色新版。快捷键←/→切换，1–5记录判断。</span><span id="position"></span></div></section></main>
+<script src="review_data.js"></script><script>(()=>{const d=window.CORNER_18_VS_20_REVIEW,s=d.samples,$=id=>document.getElementById(id),key='corner_18_vs_20_review_20260825',state=JSON.parse(localStorage.getItem(key)||'{}');let ids=[],at=0;const save=()=>localStorage.setItem(key,JSON.stringify(state));function refresh(){const q=$('search').value.trim().toLowerCase(),source=$('source').value,status=$('status').value,sort=$('sort').value;ids=s.map((x,i)=>i).filter(i=>{const x=s[i],human=(state[x.filename]||{}).result||'';if(q&&!x.filename.toLowerCase().includes(q))return false;if(source!=='all'&&x.source!==source)return false;if(status==='improved'&&!(x.improvement_px>0.05))return false;if(status==='worsened'&&!(x.improvement_px<-.05))return false;if(status==='old_incomplete'&&x.old_complete)return false;if(status==='new_incomplete'&&x.new_complete)return false;if(status==='extra'&&!x.extra_truth_classes.length)return false;if(status==='todo'&&human)return false;return true});ids.sort((a,b)=>{const x=s[a],y=s[b];if(sort==='improvement_desc')return y.improvement_px-x.improvement_px;if(sort==='new_error_desc')return (y.new_error_px??-1)-(x.new_error_px??-1);if(sort==='filename')return x.filename.localeCompare(y.filename);return x.improvement_px-y.improvement_px});at=Math.min(at,Math.max(0,ids.length-1));render()}function render(){const reviewed=Object.values(state).filter(v=>v.result).length;$('stats').textContent=`${d.summary.samples}张：V0–V17误差 ${d.summary.old_mean_error_px} → ${d.summary.new_mean_error_px}px；改善/恶化/近似持平 ${d.summary.improved}/${d.summary.worsened}/${d.summary.near_tie}；人工已判断 ${reviewed}/${s.length}`;if(!ids.length){$('title').textContent='当前筛选无样本';$('preview').removeAttribute('src');$('meta').innerHTML='';$('position').textContent='0/0';return}const x=s[ids[at]],e=state[x.filename]||{},cls=x.improvement_px>=0?'good':'bad';$('title').textContent=x.filename;$('preview').src=x.preview;$('meta').innerHTML=`<div class="metric">来源 <b>${x.source}</b></div><div class="metric">旧/新误差 <b>${x.old_error_px} / ${x.new_error_px}px</b></div><div class="metric">改善 <b class="${cls}">${x.improvement_px}px</b></div><div class="metric">旧/新V0–V17检出 <b>${x.old_predicted}/${x.new_predicted}</b></div><div class="metric">旧/新完整 <b>${x.old_complete?'是':'否'} / ${x.new_complete?'是':'否'}</b></div><div class="metric">额外真值 <b class="${x.extra_truth_classes.length?'warn':''}">${x.extra_truth_classes.length?x.extra_truth_classes.join(','):'无'}</b></div><div class="metric">新版额外预测 <b>${x.new_extra_predicted_classes.length?x.new_extra_predicted_classes.join(','):'无'}</b></div><div class="metric">CPU耗时 <b>${x.old_ms}/${x.new_ms}ms</b></div>`;$('notes').value=e.notes||'';document.querySelectorAll('[data-result]').forEach(b=>b.classList.toggle('active',b.dataset.result===(e.result||'')));$('position').textContent=`${at+1}/${ids.length}`;$('jump').value=at+1}function move(n){at=Math.max(0,Math.min(ids.length-1,at+n));render()}function setResult(result){if(!ids.length)return;const x=s[ids[at]];state[x.filename]={...(state[x.filename]||{}),result,notes:$('notes').value};save();if(result&&at<ids.length-1)at++;render()}['search','source','status','sort'].forEach(id=>$(id).oninput=()=>{at=0;refresh()});$('prev').onclick=()=>move(-1);$('next').onclick=()=>move(1);$('jump').onchange=()=>{const value=Number($('jump').value)-1;if(value>=0&&value<ids.length){at=value;render()}};$('jump').onkeydown=e=>{if(e.key==='Enter')$('jump').dispatchEvent(new Event('change'))};document.querySelectorAll('[data-result]').forEach(b=>b.onclick=()=>setResult(b.dataset.result));$('notes').oninput=()=>{if(!ids.length)return;const x=s[ids[at]];state[x.filename]={...(state[x.filename]||{}),notes:$('notes').value};save()};$('export').onclick=()=>{const q=v=>'"'+String(v??'').replaceAll('"','""')+'"',rows=['filename,result,notes'];s.forEach(x=>{const e=state[x.filename]||{};rows.push([x.filename,e.result||'',e.notes||''].map(q).join(','))});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.join('\r\n')],{type:'text/csv'}));a.download='Corner人工核验结果.csv';a.click()};document.onkeydown=e=>{if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName))return;if(e.key==='ArrowLeft')move(-1);else if(e.key==='ArrowRight')move(1);else if(['1','2','3','4','5'].includes(e.key))setResult({1:'new_better',2:'old_better',3:'both_ok',4:'both_bad',5:'uncertain'}[e.key])};refresh()})();</script>'''
+
+
+def write_review_files(output_dir: Path, samples: Sequence[dict], comparison: dict, old_summary: dict, new_summary: dict) -> None:
+    review_samples = []
+    for sample in samples:
+        review_samples.append({
+            "filename": sample["filename"],
+            "source": corner_eval.source_group(sample["filename"]),
+            "preview": sample["preview"],
+            "old_error_px": sample["old_base"]["mean_error_px"],
+            "new_error_px": sample["new_base"]["mean_error_px"],
+            "improvement_px": sample["base_improvement_px"],
+            "old_predicted": sample["old_base"]["predicted_vertebrae"],
+            "new_predicted": sample["new_base"]["predicted_vertebrae"],
+            "old_complete": sample["old_base"]["complete_ground_truth"],
+            "new_complete": sample["new_base"]["complete_ground_truth"],
+            "extra_truth_classes": sample["extra_truth_classes"],
+            "new_extra_predicted_classes": sample["new_extra_predicted_classes"],
+            "old_ms": sample["old_ms"],
+            "new_ms": sample["new_ms"],
+        })
+    payload = {
+        "summary": {
+            "samples": len(samples),
+            "old_mean_error_px": old_summary["mean_error_px"],
+            "new_mean_error_px": new_summary["mean_error_px"],
+            "improved": comparison["improved_images"],
+            "worsened": comparison["worsened_images"],
+            "near_tie": comparison["near_tie_images"],
+        },
+        "samples": review_samples,
+    }
+    (output_dir / "review_data.js").write_text(
+        "window.CORNER_18_VS_20_REVIEW = " + json.dumps(payload, ensure_ascii=False) + ";\n",
+        encoding="utf-8",
+    )
+    (output_dir / "打开全量对比页面.html").write_text(REVIEW_HTML, encoding="utf-8")
 
 
 def automatic_interpretation(old: dict, new: dict) -> str:
@@ -252,6 +304,11 @@ def write_report(path: Path, manifest: dict) -> None:
         f"| {name} | {values['truth_vertebrae']} | {values['predicted_vertebrae']} | {values['detected_vertebrae']} | {values['false_positive_vertebrae']} | {format_percent(values['precision'])} | {format_percent(values['point_recall'])} | {values['mean_error_px']} |"
         for name, values in extra["per_class"].items()
     )
+    review_note = (
+        "`打开全量对比页面.html`可浏览全部test三栏图并记录人工判断；`previews/`包含全部样本。"
+        if manifest.get("review", {}).get("all_previews")
+        else "`representatives/`包含改善最大、恶化最大、中位附近及全部V18/V19 test病例的三栏图。"
+    )
     report = f"""# 最新Corner 20类模型与上一版18类模型对比
 
 - test：{manifest['test']['images']}张原图；共同能力只评V0–V17
@@ -301,7 +358,7 @@ test中只有{extra['images']}张图、{extra['truth_vertebrae']}个额外椎体
 |---|---:|---:|---:|
 {chr(10).join(vertebra_rows)}
 
-`representatives/`包含改善最大、恶化最大、中位附近及全部V18/V19 test病例的三栏图；绿色为GT、洋红为旧模型、青色为新模型。
+{review_note}绿色为GT、洋红为旧模型、青色为新模型。
 """
     path.write_text(report, encoding="utf-8")
 
@@ -407,10 +464,25 @@ def build_comparison(args: argparse.Namespace) -> dict:
             "preview": relative,
         })
 
+    if args.all_previews:
+        for index, sample in enumerate(samples, 1):
+            image_path = Path(sample["image_path"])
+            relative = f"previews/{index:04d}_{image_path.stem}.jpg"
+            render_preview(
+                image_path,
+                truth_by_file[sample["filename"]],
+                old_by_file[sample["filename"]],
+                new_by_file[sample["filename"]],
+                sample["old_base"]["mean_error_px"],
+                sample["new_base"]["mean_error_px"],
+                args.output_dir / relative,
+            )
+            sample["preview"] = relative
+
     source_analysis = aggregate_sources(samples)
     interpretation = build_interpretation(old_summary, new_summary, comparison, source_analysis, extra_summary)
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2 if args.all_previews else 1,
         "models": {
             "old": {"path": str(args.old_model.resolve()), "sha256": corner_eval.sha256_file(args.old_model), "class_count": 18},
             "new": {"path": str(args.new_model.resolve()), "sha256": corner_eval.sha256_file(args.new_model), "class_count": 20},
@@ -425,7 +497,14 @@ def build_comparison(args: argparse.Namespace) -> dict:
         "automatic_interpretation": interpretation,
         "representatives": representatives,
         "samples": samples,
+        "review": {
+            "all_previews": bool(args.all_previews),
+            "preview_count": len(samples) if args.all_previews else len(representatives),
+            "html": "打开全量对比页面.html" if args.all_previews else None,
+        },
     }
+    if args.all_previews:
+        write_review_files(args.output_dir, samples, comparison, old_summary, new_summary)
     write_csv(args.output_dir / "per_image.csv", samples)
     write_report(args.output_dir / "report.md", manifest)
     manifest["package_files"] = {
@@ -449,6 +528,7 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--raw-conf", type=float, default=0.001)
     parser.add_argument("--confidence", type=float, default=0.5)
     parser.add_argument("--limit", type=int)
+    parser.add_argument("--all-previews", action="store_true", help="Render all test images and create an offline review page.")
     return parser.parse_args(argv)
 
 

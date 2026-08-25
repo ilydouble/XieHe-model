@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import importlib.util
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -71,6 +73,16 @@ class CompareCorner18Vs20Test(unittest.TestCase):
         self.assertEqual(summary["false_positive_vertebrae"], 1)
         self.assertEqual(summary["precision"], 0.5)
 
+    def test_extra_summary_handles_subset_without_rare_truth(self):
+        summary = MODULE.summarize_extra_predictions([{
+            "extra_truth_classes": [],
+            "new_extra_predicted_classes": [],
+            "new_extra": None,
+        }])
+        self.assertEqual(summary["images"], 0)
+        self.assertEqual(summary["visible_points"], 0)
+        self.assertIsNone(summary["point_recall"])
+
     def test_combined_interpretation_flags_unstable_sources_and_rare_recall(self):
         old = {"mean_error_px": 10.0, "point_recall": 0.98, "pck_20_all": 0.9}
         new = {"mean_error_px": 9.0, "point_recall": 0.981, "pck_20_all": 0.91}
@@ -81,6 +93,43 @@ class CompareCorner18Vs20Test(unittest.TestCase):
         self.assertIn("区间跨0", value)
         self.assertIn("legacy", value)
         self.assertIn("1/6", value)
+
+    def test_all_preview_flag_is_opt_in(self):
+        args = MODULE.parse_args(["--old-model", "old.pt", "--new-model", "new.pt", "--output-dir", "out"])
+        self.assertFalse(args.all_previews)
+        args = MODULE.parse_args([
+            "--old-model", "old.pt", "--new-model", "new.pt", "--output-dir", "out", "--all-previews",
+        ])
+        self.assertTrue(args.all_previews)
+
+    def test_write_review_files_uses_v0_to_v17_metrics(self):
+        metric = {
+            "mean_error_px": 8.0,
+            "predicted_vertebrae": 18,
+            "complete_ground_truth": True,
+        }
+        samples = [{
+            "filename": "eap_example.png",
+            "preview": "previews/0001_eap_example.jpg",
+            "old_base": metric,
+            "new_base": {**metric, "mean_error_px": 7.0},
+            "base_improvement_px": 1.0,
+            "extra_truth_classes": [18],
+            "new_extra_predicted_classes": [18],
+            "old_ms": 10.0,
+            "new_ms": 11.0,
+        }]
+        comparison = {"improved_images": 1, "worsened_images": 0, "near_tie_images": 0}
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            MODULE.write_review_files(output, samples, comparison, {"mean_error_px": 8.0}, {"mean_error_px": 7.0})
+            html = (output / "打开全量对比页面.html").read_text(encoding="utf-8")
+            data = (output / "review_data.js").read_text(encoding="utf-8")
+        self.assertIn("主评V0–V17", html)
+        payload = json.loads(data.removeprefix("window.CORNER_18_VS_20_REVIEW = ").removesuffix(";\n"))
+        self.assertEqual(payload["summary"]["samples"], 1)
+        self.assertEqual(payload["samples"][0]["new_error_px"], 7.0)
+        self.assertEqual(payload["samples"][0]["extra_truth_classes"], [18])
 
 
 if __name__ == "__main__":
