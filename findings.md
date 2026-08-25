@@ -632,3 +632,7 @@
 - 当前真实文件`XieHe-System/model/ap/infrastructure/yolo_inference.py`确认：Pose仍直接对传入原图调用`model.predict(img, verbose=False)`，没有裁黑边、ROI、显式imgsz或显式predict conf；随后选box置信度最高且至少0.5的单个实例，按模型6点原始顺序映射CR/CL/IR/IL/SR/SL，并在横向跨度不足原宽10%或纵向跨度不足原高20%时整组丢弃。这里没有坐标拉伸或经验偏移修正。
 - 同一线上文件确认Corner仍完全忽略模型原生class ID：先按box conf≥0.5筛选，再自行做IoU>0.3去重，按四角平均y从上到下排序，最后连续重编号为C7、T1–T12、L1–L5，超过rank17写成V18/V19等。该逻辑不是轻微清洗，而是覆盖模型分类语义的核心后处理。
 - 配置仍固定`CONF_THRESHOLD=0.5`，权重路径为工作副本内`model/ap/weights/pose.pt`和`pose_corner.pt`；是否正是本地最新权重仍需核对部署文件/哈希。领域层只消费C7/T1…名字生成Cobb等测量，未在已读部分再次调整模型坐标。
+- HTTP链路为对象存储字节→OpenCV `IMREAD_COLOR`原尺寸BGR解码→`measure_image`分别把同一整图直接送入Pose与Corner；共享图像层只有导出脚本可选左右翻转，正式HTTP路径没有裁黑边、resize、ROI或第二阶段。
+- `measure_image`还有一项重要兜底：只要Pose最终返回空且Corner非空，就用L5/L3或L4/T1或T2或C7的框按固定倍数估算肩、髂、骶六点，并把这些点confidence置0。它会在无Pose候选、box<0.5或跨度检查失败时自动生效；这类结果不应与新Pose模型真实输出混作同一精度等级。
+- git追溯显示Pose/Corner核心后处理自2026-07-07 DDD重构提交后基本未变，只有2026-08-12修过左右语义；当前工作副本根本没有`model/ap/weights`目录，无法从本地XieHe-System确认正式服务器权重哈希。因而可以审计代码逻辑，但不能声称工作副本已实际装载本地最新两个权重。
+- 当前AP单元测试只覆盖从椎体估算Pose和测量领域层，搜索未发现对Corner native class、y排序、重编号、重复类别选择或20类契约的测试；这是更新权重时未被自动暴露的契约缺口。
